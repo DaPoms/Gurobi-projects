@@ -1,0 +1,90 @@
+
+Gurobi 12.0.3 (win64) logging started Sun Sep 21 14:31:11 2025
+
+Set parameter LogFile to value "Jooken_test.log"
+Gurobi Optimizer version 12.0.3 build v12.0.3rc0 (win64 - Windows 11.0 (26100.2))
+
+CPU model: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 6 physical cores, 12 logical processors, using up to 12 threads
+
+Non-default parameters:
+Presolve  0
+
+Optimize a model with 1 rows, 400 columns and 400 nonzeros
+Model fingerprint: 0x3c2f373e
+Variable types: 0 continuous, 400 integer (400 binary)
+Coefficient statistics:
+  Matrix range     [6e+00, 5e+05]
+  Objective range  [3e+00, 5e+05]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+06, 1e+06]
+Found heuristic solution: objective 501893.00000
+Variable types: 0 continuous, 400 integer (400 binary)
+
+Root relaxation: objective 1.000816e+06, 1 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 1000815.87    0    1 501893.000 1000815.87  99.4%     -    0s
+H    0     0                    501905.00000 1000815.87  99.4%     -    0s
+H    0     0                    501917.00000 1000815.87  99.4%     -    0s
+H    0     0                    501979.00000 1000815.87  99.4%     -    0s
+     0     0 1000803.89    0    1 501979.000 1000803.89  99.4%     -    0s
+     0     2 1000803.89    0    1 501979.000 1000803.89  99.4%     -    0s
+
+Cutting planes:
+  Cover: 1
+
+Explored 45 nodes (27 simplex iterations) in 0.05 seconds (0.01 work units)
+Thread count was 12 (of 12 available processors)
+
+Solution count 4: 501979 501917 501905 501893 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 5.019790000000e+05, best bound 5.019790000000e+05, gap 0.0000%
+
+Gurobi 12.0.3 (win64) logging started Sun Sep 21 14:31:28 2025
+
+Set parameter LogFile to value "Jooken_test.log"
+Gurobi Optimizer version 12.0.3 build v12.0.3rc0 (win64 - Windows 11.0 (26100.2))
+
+CPU model: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 6 physical cores, 12 logical processors, using up to 12 threads
+
+Non-default parameters:
+Presolve  0
+
+Optimize a model with 1 rows, 400 columns and 400 nonzeros
+Model fingerprint: 0x3c2f373e
+Variable types: 0 continuous, 400 integer (400 binary)
+Coefficient statistics:
+  Matrix range     [6e+00, 5e+05]
+  Objective range  [3e+00, 5e+05]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+06, 1e+06]
+Found heuristic solution: objective 501893.00000
+Variable types: 0 continuous, 400 integer (400 binary)
+
+Root relaxation: objective 1.000816e+06, 1 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 1000815.87    0    1 501893.000 1000815.87  99.4%     -    0s
+H    0     0                    501905.00000 1000815.87  99.4%     -    0s
+H    0     0                    501917.00000 1000815.87  99.4%     -    0s
+H    0     0                    501979.00000 1000815.87  99.4%     -    0s
+     0     0 1000803.89    0    1 501979.000 1000803.89  99.4%     -    0s
+     0     2 1000803.89    0    1 501979.000 1000803.89  99.4%     -    0s
+
+Cutting planes:
+  Cover: 1
+
+Explored 45 nodes (27 simplex iterations) in 0.04 seconds (0.01 work units)
+Thread count was 12 (of 12 available processors)
+
+Solution count 4: 501979 501917 501905 501893 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 5.019790000000e+05, best bound 5.019790000000e+05, gap 0.0000%
