@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "Run with Gurobi",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "${env:PATH};C:\\gurobi1203\\win64\\bin"
+                }
+            ],
+            "console": "integratedTerminal",
+            "preLaunchTask": "C/C++: g++.exe build active file"
+        }
+    ]
+}
+
+        
