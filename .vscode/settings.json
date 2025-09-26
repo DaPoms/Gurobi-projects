@@ -2,6 +2,11 @@
     "files.associations": {
         "iostream": "cpp",
         "string": "cpp",
-        "bitset": "cpp"
+        "bitset": "cpp",
+        "iosfwd": "cpp",
+        "fstream": "cpp",
+        "new": "cpp",
+        "forward_list": "cpp",
+        "list": "cpp"
     }
 }

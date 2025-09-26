@@ -21,9 +21,11 @@
         },
         {
             "type": "cppbuild",
+            //"type": "shell",
             "label": "C/C++: g++.exe build active file",
             "command": "cl.exe",
             "args": [
+                "/std:c++latest",
                 "/nologo",
                 "/EHsc",
                 "/Zi",
