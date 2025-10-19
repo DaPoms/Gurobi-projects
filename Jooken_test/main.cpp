@@ -28,9 +28,9 @@ void readFile(ifstream& problemFile, vector<long long>& weights, vector<long lon
 int main()
 { //note, presolve on by default
     //formatting and creating a csv file following an excel format
-    ofstream excel("left.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("testRes.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name:" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
-    std::filesystem::path problems{"C:/Users/Pomer/Desktop/Gurobi projects/Jooken_test/leftOvers"}; //Problem instances are provided by JorikJooken github: https://github.com/JorikJooken/knapsackProblemInstances 
+    std::filesystem::path problems{"C:/Users/Pomer/Desktop/Gurobi projects/Jooken_test/problemInstances"}; //Problem instances are provided by JorikJooken github: https://github.com/JorikJooken/knapsackProblemInstances 
     //GRBEnv env = GRBEnv(); //Stack version
     GRBEnv *env = new GRBEnv(); //Heap version (can change dynamically)
     ifstream testFile;  
@@ -42,7 +42,7 @@ int main()
         {
             GRBModel model(env);
             model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-            model.set(GRB_DoubleParam_TimeLimit, 10); //I believe you can actually change this with GBREnv to affect all models
+            model.set(GRB_DoubleParam_TimeLimit, 60); //I believe you can actually change this with GBREnv to affect all models
             GRBLinExpr objective; //expression for maximizing values
             GRBLinExpr weightExpr;
             
@@ -58,19 +58,26 @@ int main()
                 GRBVar *x = model.addVars(count, GRB_BINARY); //Model will have to decide 1 to include and 0 to not include value to the knapsack
 
                 for(int i{0}; i < count; i++) //when we test our set of elements, the total value is calculated as the summation of their value and whether they were picked for the knapsack (1,0)
-                    objective += double(values[i]) * x[i];
+                    objective += (values[i]) * x[i];
                 model.setObjective(objective, GRB_MAXIMIZE); //Objective: We want to maximize our value that we get from values[i] * x[i]
 
                 //Defines constraint of weight
                 for(int i{0}; i < count; i++)
-                    weightExpr += double(weights[i]) * x[i];
-                GRBConstr weightConstraint = model.addConstr(weightExpr <= double(capacity), "capacity_constraint"); //defines relationship between total weight and capacity
-
+                    weightExpr +=  weights[i] * x[i];
+                GRBConstr weightConstraint = model.addConstr(weightExpr <= (capacity), "capacity_constraint"); //defines relationship between total weight and capacity
                 model.optimize(); //actually runs the optimization problem (uses the GRBLinExpr to test combinations).
-
-                //Puts results in CSV file
+                //profit needs to be manually calculated to prevent lossy conversion from double if I were to use GRB_DoubleAttr_ObjVal
+                //Puts results in CSV file, only after calculating answer as a long long instead of the default double
+                
+             
+                long long profit{0};
+                 for(int i{0}; i < count; i++)
+                {
+                    if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                        profit += values[i];
+                } 
                 // excel << entry.path().parent_path().filename() << "," << model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << "\n";
-                excel << entry.path().parent_path().filename() << "," << model.get(GRB_DoubleAttr_ObjVal) << endl;
+                excel << entry.path().parent_path().filename() << "," << profit << endl;
 
                 //Resetting values before the next model   
                 delete[] x; //I believe since x is from an api funtction that uses the heap, we need to delete it at the end to prevent memory leaks
