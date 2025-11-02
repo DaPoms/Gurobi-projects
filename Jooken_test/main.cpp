@@ -41,8 +41,8 @@ int main()
         for (const auto& entry : std::filesystem::recursive_directory_iterator(problems)) //traverses every "entity" in the given folder
         {
             GRBModel model(env);
-            model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-            model.set(GRB_DoubleParam_TimeLimit, 60); //I believe you can actually change this with GBREnv to affect all models
+            model.set(GRB_DoubleParam_MIPGap, 0.001); //What we deem optimal mipgap to terminate the program 
+            model.set(GRB_DoubleParam_TimeLimit, 300); //I believe you can actually change this with GBREnv to affect all models
             GRBLinExpr objective; //expression for maximizing values
             GRBLinExpr weightExpr;
             
