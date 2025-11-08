@@ -49,7 +49,7 @@ void readFile(ifstream& problemFile, vector<long long>& weights, vector<long lon
 int main()
 { //note, presolve on by default
     //formatting and creating a csv file following an excel format
-    ofstream excel("testRes.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("GreedyWarm.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name:" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
     std::filesystem::path problems{"C:/Users/Pomer/Desktop/Gurobi projects/Jooken_test/problemInstances"}; //Problem instances are provided by JorikJooken github: https://github.com/JorikJooken/knapsackProblemInstances 
     //GRBEnv env = GRBEnv(); //Stack version
@@ -101,7 +101,7 @@ int main()
                 //GRBVar *x = model.addVars(count, GRB_BINARY); //Model will have to decide 1 to include and 0 to not include value to the knapsack
                 vector<GRBVar> x;
                 for(int i{0}; i < candidates.size(); i++)
-                    x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY));
+                    x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); // params are as follows: (lower bound, upper bound, starting val, type)
 
 
                 for(int i{0}; i < count; i++) //when we test our set of elements, the total value is calculated as the summation of their value and whether they were picked for the knapsack (1,0)
