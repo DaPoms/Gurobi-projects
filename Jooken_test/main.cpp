@@ -28,7 +28,7 @@ void readFile(ifstream& problemFile, vector<long long>& weights, vector<long lon
 int main()
 { //note, presolve on by default
     //formatting and creating a csv file following an excel format
-    ofstream excel("testRes.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("coldstart.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name:" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
     std::filesystem::path problems{"C:/Users/Pomer/Desktop/Gurobi projects/Jooken_test/problemInstances"}; //Problem instances are provided by JorikJooken github: https://github.com/JorikJooken/knapsackProblemInstances 
     //GRBEnv env = GRBEnv(); //Stack version
@@ -41,8 +41,8 @@ int main()
         for (const auto& entry : std::filesystem::recursive_directory_iterator(problems)) //traverses every "entity" in the given folder
         {
             GRBModel model(env);
-            model.set(GRB_DoubleParam_MIPGap, 0.001); //What we deem optimal mipgap to terminate the program 
-            model.set(GRB_DoubleParam_TimeLimit, 300); //I believe you can actually change this with GBREnv to affect all models
+            model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
+            model.set(GRB_DoubleParam_TimeLimit, 60); //I believe you can actually change this with GBREnv to affect all models
             GRBLinExpr objective; //expression for maximizing values
             GRBLinExpr weightExpr;
             
@@ -76,8 +76,8 @@ int main()
                     if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
                         profit += values[i];
                 } 
-                // excel << entry.path().parent_path().filename() << "," << model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << "\n";
-                excel << entry.path().parent_path().filename() << "," << profit << endl;
+                excel << entry.path().parent_path().filename() << "," << profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl;
+                //excel << entry.path().parent_path().filename() << "," << profit << endl;
 
                 //Resetting values before the next model   
                 delete[] x; //I believe since x is from an api funtction that uses the heap, we need to delete it at the end to prevent memory leaks

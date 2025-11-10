@@ -80,7 +80,7 @@ int main()
                 
                 readFile(testFile, weights, values, count, capacity); //we assume the testFile is formatted properly (starts with count, then all the elements in the problem, and ends with the capacity of the knapsack)
                 
-                // WARM START SECTION //
+                ///// WARM START SECTION /////
                 vector<int> bestRatioIndexesRemaining; //index 0 has the highest ratio, last is the worst. Only contains elements NOT in our knapsack
                 for(int i{0}; i < count; i++)
                     bestRatioIndexesRemaining.push_back(i);
@@ -149,7 +149,7 @@ int main()
                         profit += values[i];
                 } 
                 // excel << entry.path().parent_path().filename() << "," << model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << "\n";
-                excel << entry.path().parent_path().filename() << "," << profit << endl;
+                excel << entry.path().parent_path().filename() << "," << profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl;
 
                 //Resetting values before the next model   
                 x.clear(); //I believe since x is from an api funtction that uses the heap, we need to delete it at the end to prevent memory leaks
