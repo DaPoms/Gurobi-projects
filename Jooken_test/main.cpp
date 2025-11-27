@@ -26,13 +26,34 @@ void readFile(ifstream& problemFile, vector<long long>& weights, vector<long lon
 }
 
 int main()
-{ //note, presolve on by default
+{
+    
+    //note, presolve on by default
     //formatting and creating a csv file following an excel format
     ofstream excel("coldstart.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name:" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
+    //std::filesystem::path problems;
+   
     std::filesystem::path problems{"C:/Users/Pomer/Desktop/Gurobi projects/Jooken_test/problemInstances"}; //Problem instances are provided by JorikJooken github: https://github.com/JorikJooken/knapsackProblemInstances 
+    
+    
+    
     //GRBEnv env = GRBEnv(); //Stack version
-    GRBEnv *env = new GRBEnv(); //Heap version (can change dynamically)
+    GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
+    //VERY IMPORTANT LESSON LEARNED:
+    /* 
+    The WLS variant (a new variant I am now using) of Gurobi licenses for the C++ API requires creating a GRB
+     env with = GRBEnv(True) as we want to manually input the gurobi license (the non WLS version automates this process).
+     Make sure to use getenv(varName) for security reasons, as having this license information would be a huge security issue.
+    */
+    (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
+    (env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
+    (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
+    env.start();
+
+
+
+
     ifstream testFile;  
     vector<long long> values = {};
     vector<long long> weights = {};
@@ -40,7 +61,7 @@ int main()
     long long capacity{-1};
         for (const auto& entry : std::filesystem::recursive_directory_iterator(problems)) //traverses every "entity" in the given folder
         {
-            GRBModel model(env);
+            GRBModel model(&env);
             model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
             model.set(GRB_DoubleParam_TimeLimit, 60); //I believe you can actually change this with GBREnv to affect all models
             GRBLinExpr objective; //expression for maximizing values
@@ -85,9 +106,10 @@ int main()
                 values.clear();
                 weights.clear();
             }
-        }
+        
         excel.close(); 
+        }
+    
 }
-
 
 

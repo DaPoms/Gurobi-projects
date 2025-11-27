@@ -14,7 +14,7 @@
             "environment": [
                 {
                     "name": "PATH",
-                    "value": "${env:PATH};C:\\gurobi1203\\win64\\bin"
+                    "value": "${env:PATH};C:\\gurobi1300\\win64\\bin"
                 }
             ],
             "console": "integratedTerminal",

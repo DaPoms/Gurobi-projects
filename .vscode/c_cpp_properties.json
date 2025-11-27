@@ -4,7 +4,7 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/gurobi1203/win64/include"
+                "C:/gurobi1300/win64/include"
             ],
             "defines": [
                 "_DEBUG",
