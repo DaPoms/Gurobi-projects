@@ -13,6 +13,8 @@
         "istream": "cpp",
         "tuple": "cpp",
         "utility": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "deque": "cpp",
+        "vector": "cpp"
     }
 }

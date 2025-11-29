@@ -190,10 +190,102 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
 ///////////////////////////////////
 
 
+void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, int caseCounter)
+{
+    int blockNum{1};
+    for(auto caseNum : caseNums)
+    {
+        vector<GRBLinExpr> demandConstr;
+        vector<GRBLinExpr> capacityConstr;
+        GRBLinExpr objective;
+        GRBModel model(env);
+        
+        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
+        model.set(GRB_DoubleParam_TimeLimit, 600); //600 
+        vector<GRBVar> x; //variable for if we include / not include item in knapsack
+//////////////////// objective value definition ///////////////
+        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
+            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
+       
+        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+                objective += caseNum.problemsByCase[0][i].value * x[i]; 
+        model.setObjective(objective, GRB_MAXIMIZE);
+//////////////////// capacity constraint ///////////////
+        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++) 
+        {
+            GRBLinExpr capacityExpr;
+           
+            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+            {
+                    //capacityExpr += case1.problemsByCase[0][e].capacityVal[cCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+                    capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+                
+            }
+            capacityConstr.push_back(capacityExpr);
+        }
+        for(int i{0}; i < capacityConstr.size(); i++)
+            model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );
+       
+//////////////////// demand constraint ///////////////
+        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  // NEED TO CHECK CASE VAL REIJEIOGJIGJERJIGOERGIOREGJIERGJIOERGJIOERGJIOGJOERGJO
+        {
+            GRBLinExpr demandExpr;
+            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+            {
+                    //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+                    demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+                
+            }
+            demandConstr.push_back(demandExpr);
+        }
+        for(int i{0}; i < demandConstr.size(); i++)
+            model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
+      
+        
+        model.optimize();
+
+        long long profit{0};
+
+        model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+        
+        
+        if(model.get(GRB_IntAttr_SolCount) > 0)
+        {
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+                if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += caseNum.problemsByCase[0][i].value;
+            }        
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        }
+        else // case of infeasible solution 
+        {
+            profit = -1;
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+        }
+        blockNum++;
+    }
+}
+
+//Stores all the problems for 1 of the 6 cases in the caseSet vector
+void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& problemSets) //caseSet should be empty! Holds the answer
+{
+    for(int i{0}; i < problemSets.size(); i++)
+    {
+        problemSet caseProblem;
+        caseProblem.problemsByCase.push_back(problemSets[i].problemsByCase[caseNum]);
+        caseProblem.knapsackCapacityVals = problemSets[i].knapsackCapacityVals;
+        caseProblem.knapsackDemandRequirementVals = problemSets[i].knapsackDemandRequirementVals;
+        caseSet.push_back(caseProblem);
+    }
+}
+
+
+
 int main()
 {
     ofstream excel("MDMKP.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    excel << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
+    excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
@@ -209,18 +301,15 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets);
 
 
-
-    //setting up gurobi model
-    vector<problemSet> case1Set;
-    for(int i{0}; i < problemSets.size(); i++)
+   
+    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
-        problemSet case1Problem;
-        case1Problem.problemsByCase.push_back(problemSets[i].problemsByCase[0]);
-        case1Problem.knapsackCapacityVals = problemSets[i].knapsackCapacityVals;
-        case1Problem.knapsackDemandRequirementVals = problemSets[i].knapsackDemandRequirementVals;
-        case1Set.push_back(case1Problem);
+        vector<problemSet> caseSet;
+        formatCase(i, caseSet, problemSets);
+        runGurobiMDMKP(env, excel, caseSet, i);
     }
-    
+
+    /* 
     for(auto case1 : case1Set)
     {
         vector<GRBLinExpr> demandConstr;
@@ -229,7 +318,7 @@ int main()
         GRBModel model(env);
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-         model.set(GRB_DoubleParam_TimeLimit, 600); //600 
+         model.set(GRB_DoubleParam_TimeLimit, 5); //600 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < case1.problemsByCase[0].size(); i++) 
@@ -274,7 +363,7 @@ int main()
         long long profit{0};
 
 
-        //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+        model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         for(int i{0}; i < case1.problemsByCase[0].size(); i++)
         {
         if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
@@ -283,6 +372,7 @@ int main()
         
          excel << profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
 
-    }
+    } */
+   
     return 0;
 }
