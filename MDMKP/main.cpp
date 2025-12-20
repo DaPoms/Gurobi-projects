@@ -246,7 +246,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
 
         long long profit{0};
 
-        model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+        //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         
         
         if(model.get(GRB_IntAttr_SolCount) > 0)
@@ -281,7 +281,6 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 }
 
 
-
 int main()
 {
     ofstream excel("MDMKP.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
@@ -300,8 +299,6 @@ int main()
     vector<problemSet> problemSets;
     RawProblemsToCases(MDMKRawProblems, problemSets);
 
-
-   
     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
@@ -309,70 +306,5 @@ int main()
         runGurobiMDMKP(env, excel, caseSet, i);
     }
 
-    /* 
-    for(auto case1 : case1Set)
-    {
-        vector<GRBLinExpr> demandConstr;
-        vector<GRBLinExpr> capacityConstr;
-        GRBLinExpr objective;
-        GRBModel model(env);
-        
-        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-         model.set(GRB_DoubleParam_TimeLimit, 5); //600 
-        vector<GRBVar> x; //variable for if we include / not include item in knapsack
-//////////////////// objective value definition ///////////////
-        for(int i{0}; i < case1.problemsByCase[0].size(); i++) 
-            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
-
-        for(int i{0}; i < case1.problemsByCase[0].size(); i++)
-                objective += case1.problemsByCase[0][i].value * x[i]; 
-        model.setObjective(objective, GRB_MAXIMIZE);
-//////////////////// capacity constraint ///////////////
-        for(int i{0}; i < case1.knapsackCapacityVals.size(); i++) 
-        {
-            GRBLinExpr capacityExpr;
-           
-            for(int e{0}; e < case1.problemsByCase[0].size(); e++)
-            {
-                    //capacityExpr += case1.problemsByCase[0][e].capacityVal[cCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    capacityExpr += case1.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                
-            }
-            capacityConstr.push_back(capacityExpr);
-        }
-        for(int i{0}; i < capacityConstr.size(); i++)
-            model.addConstr(capacityConstr[i] <= case1.knapsackCapacityVals[i] );
-       
-//////////////////// demand constraint ///////////////
-        for(int i{0}; i < case1.problemsByCase[0][0].demandVal.size(); i++) 
-        {
-            GRBLinExpr demandExpr;
-            for(int e{0}; e < case1.problemsByCase[0].size(); e++)
-            {
-                    //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    demandExpr += case1.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                
-            }
-            demandConstr.push_back(demandExpr);
-        }
-        for(int i{0}; i < demandConstr.size(); i++)
-            model.addConstr(demandConstr[i] >= case1.knapsackDemandRequirementVals[i] );
-      
-        
-        model.optimize();
-        long long profit{0};
-
-
-        model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
-        for(int i{0}; i < case1.problemsByCase[0].size(); i++)
-        {
-        if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-            profit += case1.problemsByCase[0][i].value;
-        } 
-        
-         excel << profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-
-    } */
-   
     return 0;
 }
