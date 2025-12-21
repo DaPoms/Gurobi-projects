@@ -194,11 +194,13 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
 problemSet extractCore(problemSet& caseProblem, vector<GRBVar>& x) // runs inside of runGurobiMDMKP to return a vector of the core problem, whgere you remove all candidates who were given an x value of 0 1 (included all or none).
 {
     problemSet coreProblem; //decided to make a separate problem set to hold the answer as its very likely we'll remove more than we add if we stored the answer in the parameter caseProblem
+    vector<MDMKCandidate> emptyCandidates;
+    coreProblem.problemsByCase.push_back(emptyCandidates);
     coreProblem.knapsackCapacityVals = caseProblem.knapsackCapacityVals;
     coreProblem.knapsackDemandRequirementVals = caseProblem.knapsackDemandRequirementVals;
     for(int i{0}; i < x.size(); i++) // Note the core is just the candidates that were partially stored in the knapsack when solving MDMKP linearly (allowing fractional insertion) instead of 0-1
     {
-        int xVal = x[i].get(GRB_DoubleAttr_X); //x val is how much of the item was added to the knapsack
+        double xVal = x[i].get(GRB_DoubleAttr_X); //x val is how much of the item was added to the knapsack
         if (xVal == 1 || xVal == 0) // xVal == 0 is just another way of skipping the else statement for when x = 0
         {
 
@@ -214,6 +216,7 @@ problemSet extractCore(problemSet& caseProblem, vector<GRBVar>& x) // runs insid
         else // Case of candidate that was fractionally inserted into the knapsack
             coreProblem.problemsByCase[0].push_back(caseProblem.problemsByCase[0][i]); //My syntax is a little fuzzy here so here's clarification: caseProblem is just a single case, which is why theres a 0 for [0][i] when accessing problemsByCase
     }
+    return coreProblem;
 }
 
 
@@ -254,6 +257,7 @@ bool isFeasible(problemSet& caseProblem) //checks if solution is feasible.
     {
 
     }
+    return false;
 }
 
 
@@ -323,7 +327,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         
         
-/*         if(model.get(GRB_IntAttr_SolCount) > 0)
+        if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
@@ -337,14 +341,18 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
             profit = -1;
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
- */
+
 
 
         //core problem implimentation (remmber to add to .csv at the end)
 
-
-
         blockNum++;
+        for(int i{0}; i < x.size(); i++)
+        {
+            cout << x[i].get(GRB_DoubleAttr_X) << '\n';
+        }
+        problemSet coreProblem = extractCore(caseNum, x);
+        
     }
 }
 
@@ -364,7 +372,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKP.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPCore.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
