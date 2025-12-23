@@ -242,22 +242,33 @@ long sumCandidatesForAttribute(problemSet& caseProblem, int attributeNum, bool i
     return ans;
 }
 
-bool isFeasible(problemSet& caseProblem) //checks if solution is feasible.
+bool isFeasible(problemSet& caseProblem) //checks if solution is feasible, assumes that all the items in the problemSet are included.
 {
+    //Note I only did double for loops for future proofing, as there is a case with 15 demand but 30 capacity constraints
     long target{-1};
+    long val{0};
     //for checking <= constraints
     for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++) // for every capacity constraint... 
     {
-        target = 1234234234;
-
+        target = caseProblem.knapsackCapacityVals[c];
+        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+            val += caseProblem.problemsByCase[0][i].capacityVal[c];
+        if(val > target) return false;
+      
     }
-
+    val = 0;
     //for loop for checking >= constraints
     for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++) // for every demand constraint...
     {
+        target = caseProblem.knapsackDemandRequirementVals[d];
 
+        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) //for every candidate we added to our knapsack...
+            val += caseProblem.problemsByCase[0][i].demandVal[d];
+        if(val < target) return false;
     }
-    return false;
+
+    return true;
+ 
 }
 
 
