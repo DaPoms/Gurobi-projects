@@ -3,12 +3,9 @@
 #include <fstream>
 #include <vector>
 #include <string>
-using namespace std;
-
-#include <iostream>
-#include <fstream>
 #include <sstream>
-#include <vector>
+#include <algorithm>
+//#include <unordered_map> //used for sorting
 using namespace std;
 
 /* 
@@ -205,7 +202,7 @@ problemSet extractCore(problemSet& caseProblem, vector<GRBVar>& x) // runs insid
         {
 
             if(xVal == 1) //if 1, it means we include it in the 0-1 instance, so the core problem's right coefficients will get shrunk by this candidate
-            { //NOTE: POSSIBLY ADD THESE CASES INTO A "DO BE ADDED" VECTOR?
+            { 
                 for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++) // for every capacity constraint... 
                     coreProblem.knapsackCapacityVals[c] -= caseProblem.problemsByCase[0][i].capacityVal[c];
             
@@ -222,7 +219,7 @@ problemSet extractCore(problemSet& caseProblem, vector<GRBVar>& x) // runs insid
 
 
 
-long sumCandidatesForAttribute(problemSet& caseProblem, int attributeNum, bool isDemand) //helper function to isFeasible(), sums all the elemetns of the passed vector
+/* long sumCandidatesForAttribute(problemSet& caseProblem, int attributeNum, bool isDemand) //helper function to isFeasible(), sums all the elemetns of the passed vector
 { // if isDemand = 0, then we know it must be an capacity constraint we are summing instead
     long ans{0};
     if(isDemand)
@@ -241,18 +238,56 @@ long sumCandidatesForAttribute(problemSet& caseProblem, int attributeNum, bool i
     }
     return ans;
 }
+ */
 
-bool isFeasible(problemSet& caseProblem) //checks if solution is feasible, assumes that all the items in the problemSet are included.
+vector<double> GRBToDoubleDecisionValues(vector<GRBVar>& x) //converts the read only GRB_DoubleAttr_X values into changeable ints 
+//(Note that the GRB_DoubleAttr_X are the solutions i.e. which candidates are needed in the knapsack that gurobi found for the MDMKP)
 {
-    //Note I only did double for loops for future proofing, as there is a case with 15 demand but 30 capacity constraints
+    vector<double> xVals;
+    for(int i{0}; i < x.size(); i++)
+        xVals.push_back(x[i].get(GRB_DoubleAttr_X));
+    return xVals;
+}
+
+bool isFeasible(problemSet& caseProblem, vector<double>& xVals) //checks if solution is feasible, assumes that all the items with a decision variable = 1 are in the solution
+{
+
+    //Note I only did 2 sets of nested for loops for future proofing, as there is a case with 15 demand but 30 capacity constraints
     long target{-1};
-    long val{0};
+    vector<long> currKnapsackCapacityVals(caseProblem.knapsackCapacityVals.size(), 0);
+    vector<long> currKnapsackDemandVals(caseProblem.knapsackDemandRequirementVals.size(), 0);
+    for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) //for every candidate...
+    {
+        if(xVals[i] == 1) //if candidate is considered part of the solution...
+        {
+            //for loop for summing <= constraints
+            for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++) // for every capacity constraint... 
+                currKnapsackCapacityVals[c] += caseProblem.problemsByCase[0][i].capacityVal[c];
+            //for loop for summing >= constraints
+            for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++) // for every demand constraint...
+                currKnapsackDemandVals[d] += caseProblem.problemsByCase[0][i].demandVal[d];
+        }
+
+       
+        
+    }
+     //compares sums to what the actual limitations are
+    for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++)
+            if(currKnapsackCapacityVals[c] > caseProblem.knapsackCapacityVals[c]) return false;
+    for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++)
+        if(currKnapsackCapacityVals[d] < caseProblem.knapsackCapacityVals[d]) return false;
+    return true;
+
+/* 
     //for checking <= constraints
     for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++) // for every capacity constraint... 
     {
         target = caseProblem.knapsackCapacityVals[c];
         for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+        {
+            
             val += caseProblem.problemsByCase[0][i].capacityVal[c];
+        }
         if(val > target) return false;
       
     }
@@ -261,16 +296,55 @@ bool isFeasible(problemSet& caseProblem) //checks if solution is feasible, assum
     for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++) // for every demand constraint...
     {
         target = caseProblem.knapsackDemandRequirementVals[d];
-
         for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) //for every candidate we added to our knapsack...
             val += caseProblem.problemsByCase[0][i].demandVal[d];
         if(val < target) return false;
     }
 
     return true;
- 
+  */
 }
 
+//returns true if item can be added without oveflowing any capacity constraints
+bool isGreedyAddAllowed(problemSet& coreProblem, vector<long>& currCapacityVals, int index) //index is the item to be added
+{
+    for(int c{0}; c < currCapacityVals.size(); c++) //for every capacity constraint...
+    {
+        if(currCapacityVals[c] + coreProblem.problemsByCase[0][index].capacityVal[c] > coreProblem.knapsackCapacityVals[c])
+            return false; // we return false if this item will cause the knapsack to exceed in ANY capacity constraint
+    }
+    return true;
+}
+
+ void greedyCoreSolver(problemSet& coreProblem, vector<double>& xVals) //attempts to solve greedily (selects for highest xVal values). Only stores answer by setting xVals we added to 1, which is then interpreted by a separate function
+ {
+    int len = coreProblem.knapsackCapacityVals.size();
+    vector<long> currCapacityVals(len , 0); // what the current core problem knapsack capacity values are (starts with 0 for all as bag is empty)
+    vector<int> bestXValIndices;
+    //first we sort by obj value / weight
+
+    for(int i{0}; i < xVals.size(); i++)
+        bestXValIndices.push_back(i);
+
+    //sorts a vector of indexes to be where the most picked XVals in the core problem are in the passed xVals vector, with this index also aligning with the candidates location in the coreProblem vector
+    sort(bestXValIndices.begin(), bestXValIndices.end(), [&xVals](int i, int j)
+    {
+        return (xVals[i] > xVals[j]);
+    }
+    );
+
+    for(int i{0}; i < bestXValIndices.size(); i++) //adds greedily, but has to check that all capacity constraints would not go over if we added this item.
+    // I Could make this a while loop for a performance increase, but cores are very small in our samples and thus the performance hit of running even when the bag is full is not an issue
+    {
+        int target = bestXValIndices[i];
+        if(isGreedyAddAllowed(coreProblem, currCapacityVals, target))
+        {
+            for(int c{0}; c < currCapacityVals.size(); c++)
+                currCapacityVals[c] += coreProblem.problemsByCase[0][target].capacityVal[c];
+            xVals[target] = 1.0; //item is now included into the solution
+        }
+    }
+ }
 
 
 //note: by design, caseProblems should only hold problemSets of the same case, so you need a for loop with formatByCase() being used to evaluate all cases
@@ -337,7 +411,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
 
         //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         
-        
+        //used to compare LP relaxed (linear relaxed problem) to the BIP (binary int problem) variant that is solved by the core problem method
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
@@ -358,11 +432,36 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         //core problem implimentation (remmber to add to .csv at the end)
 
         blockNum++;
-        for(int i{0}; i < x.size(); i++)
+        /* for(int i{0}; i < x.size(); i++)
         {
             cout << x[i].get(GRB_DoubleAttr_X) << '\n';
+        } */
+        vector<double> solutionXVals = GRBToDoubleDecisionValues(x); //converts answer from gurobi into a from that can be altered by our core problem solver algorithm (whatever appraoch we use) below
+        vector<double> coreXVals;
+        for(int i{0}; i < x.size(); i++) // isolates core decision variables in coreXVals
+        {
+            double decisionVal = x[i].get(GRB_DoubleAttr_X);
+            if(decisionVal != 1 && decisionVal != 0) // if item is a core problem candidate (decimal value in decision variable)
+                coreXVals.push_back(decisionVal);
+        } // Note that decision vals are pushed correlated to their order in the vector<GRBVar> x, so this is a way we can keep track of our solution
+
+        problemSet coreProblem = extractCore(caseNum, x); // this doesnt need the xVals below as it only requires read only from GRBVar
+        
+        greedyCoreSolver(coreProblem, coreXVals);
+        //transfers coreXVals to solutionXVals
+        int traverseCoreX{0};
+        for(int i{0}; i < solutionXVals.size(); i++)
+        {
+            double target = solutionXVals[i];
+            if( (target != 0 && target != 1) )
+            {
+                if(coreXVals[traverseCoreX] == 1)
+                    solutionXVals[i] = 1;
+                traverseCoreX++;
+            }
+
         }
-        problemSet coreProblem = extractCore(caseNum, x);
+        cout << "Is feasible?: " << isFeasible(caseNum, solutionXVals) << "\n";
         
     }
 }
@@ -406,12 +505,8 @@ int main()
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
 
-
-
-
-
     vector<problemSet> case3Set; // case 3 
-    formatCase(2, case3Set, problemSets);
+    formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runGurobiMDMKP(env, excel, case3Set, 2);
 
     //case 3 core problem interpretation. Reminder that everything will be stored in runGurobiMDMKP in its current state

@@ -49,7 +49,7 @@
                 "/nologo",
                 "/EHsc",
                 "/Zi",
-                "/O2",
+                "/O0", //just like we were taught in assembly, O3 = most optimized, O0 = least optimized (good for debugging)
                 "/W4",
                 "/I",
                 "C:\\gurobi1300\\win64\\include",
