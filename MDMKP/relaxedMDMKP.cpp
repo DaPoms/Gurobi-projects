@@ -210,35 +210,12 @@ problemSet extractCore(problemSet& caseProblem, vector<GRBVar>& x) // runs insid
                     coreProblem.knapsackDemandRequirementVals[d] -= caseProblem.problemsByCase[0][i].demandVal[d];
             }   
         }
-        else // Case of candidate that was fractionally inserted into the knapsack
+        else // Case of candidate that was fractionally inserted into the knapsack (a core candidate!)
             coreProblem.problemsByCase[0].push_back(caseProblem.problemsByCase[0][i]); //My syntax is a little fuzzy here so here's clarification: caseProblem is just a single case, which is why theres a 0 for [0][i] when accessing problemsByCase
     }
     return coreProblem;
 }
 
-
-
-
-/* long sumCandidatesForAttribute(problemSet& caseProblem, int attributeNum, bool isDemand) //helper function to isFeasible(), sums all the elemetns of the passed vector
-{ // if isDemand = 0, then we know it must be an capacity constraint we are summing instead
-    long ans{0};
-    if(isDemand)
-    {
-        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) // caseProblem.problemsByCase[0].size() is the # of candidates there are
-        {
-            ans += caseProblem.problemsByCase[0][i].demandVal[attributeNum];        
-        }
-    }
-    else // case of summing attribute
-    {
-        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) // caseProblem.problemsByCase[0].size() is the # of candidates there are
-        {
-            ans += caseProblem.problemsByCase[0][i].capacityVal[attributeNum];
-        }
-    }
-    return ans;
-}
- */
 
 vector<double> GRBToDoubleDecisionValues(vector<GRBVar>& x) //converts the read only GRB_DoubleAttr_X values into changeable ints 
 //(Note that the GRB_DoubleAttr_X are the solutions i.e. which candidates are needed in the knapsack that gurobi found for the MDMKP)
@@ -267,9 +244,6 @@ bool isFeasible(problemSet& caseProblem, vector<double>& xVals) //checks if solu
             for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++) // for every demand constraint...
                 currKnapsackDemandVals[d] += caseProblem.problemsByCase[0][i].demandVal[d];
         }
-
-       
-        
     }
      //compares sums to what the actual limitations are
     for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++)
@@ -277,33 +251,8 @@ bool isFeasible(problemSet& caseProblem, vector<double>& xVals) //checks if solu
     for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++)
         if(currKnapsackCapacityVals[d] < caseProblem.knapsackCapacityVals[d]) return false;
     return true;
-
-/* 
-    //for checking <= constraints
-    for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++) // for every capacity constraint... 
-    {
-        target = caseProblem.knapsackCapacityVals[c];
-        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
-        {
-            
-            val += caseProblem.problemsByCase[0][i].capacityVal[c];
-        }
-        if(val > target) return false;
-      
-    }
-    val = 0;
-    //for loop for checking >= constraints
-    for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++) // for every demand constraint...
-    {
-        target = caseProblem.knapsackDemandRequirementVals[d];
-        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) //for every candidate we added to our knapsack...
-            val += caseProblem.problemsByCase[0][i].demandVal[d];
-        if(val < target) return false;
-    }
-
-    return true;
-  */
 }
+
 
 //returns true if item can be added without oveflowing any capacity constraints
 bool isGreedyAddAllowed(problemSet& coreProblem, vector<long>& currCapacityVals, int index) //index is the item to be added
@@ -346,12 +295,67 @@ bool isGreedyAddAllowed(problemSet& coreProblem, vector<long>& currCapacityVals,
     }
  }
 
+ //My thought for this is what if we shorten the work gurobi has to do by first doing the relaxed version,
+ // and then using the smaller core formed from this as another input for the unrelaxed problem
+
+ //Only difference to runGurobiMDMKP is there is no file output and this only does one problemSet at a time, not a vector of problemSets
+vector<double> gurobiOnCore(problemSet& coreProblem, GRBEnv& env)
+{
+        vector<GRBLinExpr> demandConstr;
+        vector<GRBLinExpr> capacityConstr;
+        GRBLinExpr objective;
+        GRBModel model(env);
+        
+        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
+        model.set(GRB_DoubleParam_TimeLimit, 600); //600 
+        vector<GRBVar> x; //variable for if we include / not include item in knapsack
+//////////////////// objective value definition ///////////////
+        for(int i{0}; i < coreProblem.problemsByCase[0].size(); i++) 
+            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); //works due to unique behavior of GRBVars, effectively the GRBVar's will take on the associated model's changes
+       
+        for(int i{0}; i < coreProblem.problemsByCase[0].size(); i++)
+                objective += coreProblem.problemsByCase[0][i].value * x[i]; 
+        model.setObjective(objective, GRB_MAXIMIZE);
+//////////////////// capacity constraint ///////////////
+        for(int i{0}; i < coreProblem.knapsackCapacityVals.size(); i++) 
+        {
+            GRBLinExpr capacityExpr;
+            for(int e{0}; e < coreProblem.problemsByCase[0].size(); e++)
+                capacityExpr += coreProblem.problemsByCase[0][e].capacityVal[i] * x[e];
+            capacityConstr.push_back(capacityExpr);
+        }
+        for(int i{0}; i < capacityConstr.size(); i++)
+            model.addConstr(capacityConstr[i] <= coreProblem.knapsackCapacityVals[i] );
+       
+//////////////////// demand constraint ///////////////
+        for(int i{0}; i < coreProblem.knapsackDemandRequirementVals.size(); i++) 
+        {
+            GRBLinExpr demandExpr;
+            for(int e{0}; e < coreProblem.problemsByCase[0].size(); e++)
+                demandExpr += coreProblem.problemsByCase[0][e].demandVal[i] * x[e];  
+            demandConstr.push_back(demandExpr);
+        }
+        for(int i{0}; i < demandConstr.size(); i++)
+            model.addConstr(demandConstr[i] >= coreProblem.knapsackDemandRequirementVals[i] );
+      
+        model.optimize();
+
+        model.write("testModel.lp");
+        if(model.get(GRB_IntAttr_SolCount) == 0) return vector<double>();
+        return GRBToDoubleDecisionValues(x); //returns core solution
+
+}
+
+
+
+
+
 
 //note: by design, caseProblems should only hold problemSets of the same case, so you need a for loop with formatByCase() being used to evaluate all cases
 void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProblems, int caseCounter)
 {
     int blockNum{1};
-    for(auto caseNum : caseProblems)
+    for(problemSet caseProblem : caseProblems)
     {
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
         if( (blockNum == 7 && caseCounter == 2 ) || (blockNum == 8 && caseCounter == 2 ) || (blockNum == 10 && caseCounter == 2 ) || (blockNum == 14 && caseCounter == 2 ) || (blockNum == 8 && caseCounter == 5 ) || (blockNum == 14 && caseCounter == 5 ))
@@ -368,43 +372,36 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         model.set(GRB_DoubleParam_TimeLimit, 600); //600 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
+        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) 
             x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_CONTINUOUS)); 
        
-        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-                objective += caseNum.problemsByCase[0][i].value * x[i]; 
+        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+                objective += caseProblem.problemsByCase[0][i].value * x[i]; 
         model.setObjective(objective, GRB_MAXIMIZE);
 //////////////////// capacity constraint ///////////////
-        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++) 
+        for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) 
         {
             GRBLinExpr capacityExpr;
-           
-            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
-            {
-                    //capacityExpr += case1.problemsByCase[0][e].capacityVal[cCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                
-            }
+            for(int e{0}; e < caseProblem.problemsByCase[0].size(); e++)
+                capacityExpr += caseProblem.problemsByCase[0][e].capacityVal[i] * x[e];
             capacityConstr.push_back(capacityExpr);
         }
         for(int i{0}; i < capacityConstr.size(); i++)
-            model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );
+            model.addConstr(capacityConstr[i] <= caseProblem.knapsackCapacityVals[i] );
        
 //////////////////// demand constraint ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  // NEED TO CHECK CASE VAL REIJEIOGJIGJERJIGOERGIOREGJIERGJIOERGJIOERGJIOGJOERGJO
+        for(int i{0}; i < caseProblem.knapsackDemandRequirementVals.size(); i++) 
         {
             GRBLinExpr demandExpr;
-            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
-            {
-                    //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                
-            }
+            for(int e{0}; e < caseProblem.problemsByCase[0].size(); e++)
+                demandExpr += caseProblem.problemsByCase[0][e].demandVal[i] * x[e];  
             demandConstr.push_back(demandExpr);
         }
         for(int i{0}; i < demandConstr.size(); i++)
-            model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
+            model.addConstr(demandConstr[i] >= caseProblem.knapsackDemandRequirementVals[i] );
       
+
+        //model.set(GRB_IntParam_OutputFlag, 0); // allows suppressing of gurobi terminal output (useful for isolating messages on core approach with gurobi)
         model.optimize();
      
         long long profit{0};
@@ -414,10 +411,10 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         //used to compare LP relaxed (linear relaxed problem) to the BIP (binary int problem) variant that is solved by the core problem method
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
-            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
             {
                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-                    profit += caseNum.problemsByCase[0][i].value;
+                    profit += caseProblem.problemsByCase[0][i].value;
             }        
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; //Note this relaxation makes this problem no longer an MIP, meaning there IS NO MIPGAP
         }
@@ -445,26 +442,35 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
                 coreXVals.push_back(decisionVal);
         } // Note that decision vals are pushed correlated to their order in the vector<GRBVar> x, so this is a way we can keep track of our solution
 
-        problemSet coreProblem = extractCore(caseNum, x); // this doesnt need the xVals below as it only requires read only from GRBVar
+        problemSet coreProblem = extractCore(caseProblem, x); 
         
-        greedyCoreSolver(coreProblem, coreXVals);
-        //transfers coreXVals to solutionXVals
-        int traverseCoreX{0};
-        for(int i{0}; i < solutionXVals.size(); i++)
-        {
-            double target = solutionXVals[i];
-            if( (target != 0 && target != 1) )
-            {
-                if(coreXVals[traverseCoreX] == 1)
-                    solutionXVals[i] = 1;
-                traverseCoreX++;
-            }
 
+        /////////////////Core problem solution approaches /////////////////
+        // greedyCoreSolver(coreProblem, coreXVals);
+        coreXVals = gurobiOnCore(coreProblem, env);
+        ///////////////////////////////////////////////////////////////////
+
+        //transfers coreXVals to solutionXVals
+        if(coreXVals.size() != 0) //can comment this out when not using gurobiOnCore
+        {
+            int traverseCoreX{0};
+            for(int i{0}; i < solutionXVals.size(); i++)
+            {
+                double target = solutionXVals[i];
+                if( (target != 0 && target != 1) )
+                {
+                    if(coreXVals[traverseCoreX] == 1)
+                        solutionXVals[i] = 1;
+                    traverseCoreX++;
+                }
+
+            }
+            cout << "Is feasible?: " << isFeasible(caseProblem, solutionXVals) << "\n";
         }
-        cout << "Is feasible?: " << isFeasible(caseNum, solutionXVals) << "\n";
         
     }
 }
+
 
 //Stores all the problems for 1 of the 6 cases in the caseSet vector
 void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& problemSets) //caseSet should be empty! Holds the answer
@@ -509,11 +515,8 @@ int main()
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runGurobiMDMKP(env, excel, case3Set, 2);
 
-    //case 3 core problem interpretation. Reminder that everything will be stored in runGurobiMDMKP in its current state
-
-
-
-/*     //case 6
+/* 
+    //case 6
     vector<problemSet> case6Set; // case 6
     formatCase(5, case6Set, problemSets);
     runGurobiMDMKP(env, excel, case6Set, 5);
