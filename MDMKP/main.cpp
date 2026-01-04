@@ -3,13 +3,11 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <sstream>
 using namespace std;
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
-using namespace std;
+
+
 
 /* 
 NOTE: While this approach is less efficient than the fileread.cpp version, I decided on 
