@@ -437,7 +437,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         ///////////////////////////////////////////////////////////////////
 
         //transfers coreXVals to solutionXVals
-        if(coreXVals.size() != 0) //can comment this out when not using gurobiOnCore, not very useful for core problem as we ultimately learned from this project that the core is often infeasible no matter what
+        if(coreXVals.size() != 0) //can comment this out when using gurobiOnCore, not very useful for core problem as we ultimately learned from this project that the core is often infeasible no matter what
         {
             int traverseCoreX{0};
             for(int i{0}; i < solutionXVals.size(); i++)
@@ -451,7 +451,8 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
                 }
 
             }
-            cout << "Is feasible?: " << isFeasible(caseProblem, solutionXVals) << "\n";
+            cout << "Is feasible?: " << isFeasible(caseProblem, solutionXVals) << "\n"; //if the core was able to be made into a solution,
+            // then isfeasible() would be used to test if solving the core made the problem as a whole feasible
         }
         
     }
