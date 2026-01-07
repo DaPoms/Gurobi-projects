@@ -239,66 +239,67 @@ vector<bool> mapSolutionToVector(unordered_map<int,bool>& knapsackSolution) // I
 }
 vector<bool> arbitraryPermutationSolver(problemSet& problem)
 {
-    const int amountOfPermutations = 100000000; // just a variable to allow fast permutation count changing
+    const int amountOfPermutations = 100; // just a variable to allow fast permutation count changing
     int candidateCount = problem.problemsByCase[0].size();
     vector<int> window(candidateCount); // I ultimately couldn't use the std::array library as for that library, arrays must have their size determined at compile time. For some reason my c-style arrays worked when they shouldn't, so I'm avoiding that practice
     for(int i{0}; i < candidateCount; i++) // the original window that will be scrambled from
         window[i] = i;
  
     unordered_map<int, bool> knapsackSolution; 
-    // apparently unsigned int seed == unsigned seed
-    for(int i{0}; i < amountOfPermutations; i++) //generates amountOfPermutations count of the candidate order and tries to make them feasible (specified below)
+
+    while(true) // this is an intentionally impossible to end for loop as we want this to only end when the solution is found
     {
-        vector<int> shuffled = window; //always shuffle from the starting array to make randomization completely independent. Note: copy constructor only works if you do not define size
-        generatePermutation(shuffled);
+        for(int i{0}; i < amountOfPermutations; i++) //generates amountOfPermutations count of the candidate order and tries to make them feasible (specified below)
+        {
+            vector<int> shuffled = window; //always shuffle from the starting array to make randomization completely independent. Note: copy constructor only works if you do not define size
+            generatePermutation(shuffled);
 
-        vector<int> currCapacityVals(problem.knapsackCapacityVals.size(), 0); //used for first phase
-        vector<int> currDemandVals(problem.problemsByCase[0][0].demandVal.size(), 0); // used for second phase, but first must store the max possible demand values (if all candidates included)
-        
-        
-        for(int i{0}; i < candidateCount; i++) // prepares solution for <= approach, in which on an empty knapsack you keep on adding to knapsack so long as the knapsack retains <= satisfaction
-                knapsackSolution[i] = 0;
-        for(int i : shuffled) // <= approach. For every candidate...
-        {
-            if(isAddAllowedCapacity(currCapacityVals, problem, i)) //add item if it doesn't make a <= constraint false
-            {
-                knapsackSolution[i] = 1;
-                for(int c{0}; c < problem.knapsackCapacityVals.size(); c++)
-                    currCapacityVals[c] += problem.problemsByCase[0][i].capacityVal[c];
-                for(int d{0}; d < currDemandVals.size(); d++) //even though demand isn't directly needed, this allows very easy feasibility checking
-                    currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d];
-            }
-        }
-        if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution
-            return mapSolutionToVector(knapsackSolution);
-
-        //prepares solution for >= approach, in which on a knapsack holding every item you keep on removing from the knapsack so long as the knapsack retains >= satisfaction
-        fill(currDemandVals.begin(), currDemandVals.end(), 0); //from algorithm library (could also be done with just a simple for loop). Resets the current demand vals for the next phase
-        fill(currCapacityVals.begin(), currCapacityVals.end(), 0);
-        for(int i{0}; i < candidateCount; i++) //stores knapsack demand + capacity vals if all items were put in the bag 
-        {
-             for(int d{0}; d < currDemandVals.size(); d++)
-                currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d]; 
-            for(int c{0}; c < problem.knapsackCapacityVals.size(); c++) // capacity is not necessary for this phase of the algorithm but rather an efficiency to speedup feasibility checking
-                currCapacityVals[c] += problem.problemsByCase[0][i].capacityVal[c];
-        }
-        for(int i{0}; i < candidateCount; i++) //For every candidate... 
-            knapsackSolution[i] = 1; //we fill the bag with every single item, disregarding capacity
-        for(int i : shuffled) // >= approach. For every candidate...
-        {
-            if(isRemoveAllowedDemand(currDemandVals, problem, i)) //remove item if it doesn't make a >= constraint false
-            {
-                knapsackSolution[i] = 0;
-                for(int d{0}; d < currDemandVals.size(); d++)
-                    currDemandVals[d] -= problem.problemsByCase[0][i].demandVal[d];
-                for(int c{0}; c < problem.knapsackCapacityVals.size(); c++)
-                    currCapacityVals[c] -= problem.problemsByCase[0][i].capacityVal[c];
-            }
-        }
-        if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution
-            return mapSolutionToVector(knapsackSolution);
+            vector<int> currCapacityVals(problem.knapsackCapacityVals.size(), 0); //used for first phase
+            vector<int> currDemandVals(problem.problemsByCase[0][0].demandVal.size(), 0); // used for second phase, but first must store the max possible demand values (if all candidates included)
+            // Do note demandVals variate by case, so we use the amount of demands in a candidate to determine how many demand vals the problem has
             
-        
+            for(int i{0}; i < candidateCount; i++) // prepares solution for <= approach, in which on an empty knapsack you keep on adding to knapsack so long as the knapsack retains <= satisfaction
+                    knapsackSolution[i] = 0;
+            for(int i : shuffled) // <= approach. For every candidate...
+            {
+                if(isAddAllowedCapacity(currCapacityVals, problem, i)) //add item if it doesn't make a <= constraint false
+                {
+                    knapsackSolution[i] = 1;
+                    for(int c{0}; c < currCapacityVals.size(); c++)
+                        currCapacityVals[c] += problem.problemsByCase[0][i].capacityVal[c];
+                    for(int d{0}; d < currDemandVals.size(); d++) //even though demand isn't directly needed, this allows very easy feasibility checking
+                        currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d];
+                }
+            }
+            if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution
+                return mapSolutionToVector(knapsackSolution);
+
+            //prepares solution for >= approach, in which on a knapsack holding every item you keep on removing from the knapsack so long as the knapsack retains >= satisfaction
+            fill(currDemandVals.begin(), currDemandVals.end(), 0); //from algorithm library (could also be done with just a simple for loop). Resets the current demand vals for the next phase
+            fill(currCapacityVals.begin(), currCapacityVals.end(), 0);
+            for(int i{0}; i < candidateCount; i++) //stores knapsack demand + capacity vals if all items were put in the bag 
+            {
+                for(int d{0}; d < currDemandVals.size(); d++)
+                    currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d]; 
+                for(int c{0}; c < currCapacityVals.size(); c++) // capacity is not necessary for this phase of the algorithm but rather an efficiency to speedup feasibility checking
+                    currCapacityVals[c] += problem.problemsByCase[0][i].capacityVal[c];
+            }
+            for(int i{0}; i < candidateCount; i++) //For every candidate... 
+                knapsackSolution[i] = 1; //we fill the bag with every single item, disregarding capacity
+            for(int i : shuffled) // >= approach. For every candidate...
+            {
+                if(isRemoveAllowedDemand(currDemandVals, problem, i)) //remove item if it doesn't make a >= constraint false
+                {
+                    knapsackSolution[i] = 0;
+                    for(int d{0}; d < currDemandVals.size(); d++)
+                        currDemandVals[d] -= problem.problemsByCase[0][i].demandVal[d];
+                    for(int c{0}; c < currCapacityVals.size(); c++)
+                        currCapacityVals[c] -= problem.problemsByCase[0][i].capacityVal[c];
+                }
+            }
+            if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution
+                return mapSolutionToVector(knapsackSolution);
+        }
     }
     return vector<bool>(); // case that is only reached if no feasible solution was found
 }
@@ -347,7 +348,11 @@ void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
         for(int i{0}; i < demandConstr.size(); i++)
             model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
 //////////////////// Warm start code ///////////////
+
+auto start = chrono::high_resolution_clock::now();
 vector<bool> warmSol = arbitraryPermutationSolver(caseNum);
+auto stopTime = chrono::high_resolution_clock::now();
+long long runTime = chrono::duration_cast<chrono::seconds>(stopTime - start).count();
 if(warmSol.size() > 0)
 {
     for(int i{0}; i < warmSol.size(); i++)
@@ -369,8 +374,9 @@ if(warmSol.size() > 0)
                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
                     profit += caseNum.problemsByCase[0][i].value;
             }        
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-        }
+            // excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        }   
         else // case of infeasible solution 
         {
             profit = -1;
@@ -407,21 +413,21 @@ int main()
     env.start();
 
     //reading 
-   vector<MDMKRawProblem> MDMKRawProblems;
+    vector<MDMKRawProblem> MDMKRawProblems;
     readMDMKP("datac7.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
     vector<problemSet> problemSets;
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
 
-     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runWarmGurobiMDMKP(env, excel, caseSet, i);
     }
-/* 
-    vector<problemSet> case3Set; // case 3 
+
+/*     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(env, excel, case3Set, 2);
    */
