@@ -427,7 +427,8 @@ int main()
         runWarmGurobiMDMKP(env, excel, caseSet, i);
     }
 
-/*     vector<problemSet> case3Set; // case 3 
+/*     
+    vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(env, excel, case3Set, 2);
    */

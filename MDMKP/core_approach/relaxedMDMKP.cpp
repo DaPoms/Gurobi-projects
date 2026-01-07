@@ -5,42 +5,42 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-//#include <unordered_map> //used for sorting
 using namespace std;
 
+//raw MDMK problems are stored as followed:
 /* 
-NOTE: While this approach is less efficient than the fileread.cpp version, I decided on 
-this approach as it is more readable, and the heuristics will take long anyways, so a few extra 
-seconds of processing the data read from the file means nothing in the end
- */
-//reads one block of data from MDMKP .txt file (one block = either <=, >= constraints or cost coefficient vals)
-/* 
-Function name: readAttributeOfMDMKP
-Params:
-    ifstream& file: The file we want to read from, should be "pointing" to the start of the attribute we want to read 
-    vector<vector<long>>& candidateCapacityAtrributes: Where we will store each candidates attribute for each constraint (reminder that there are multiple capacity constraints and demand constraints in each problem)
-    bool IsConstraint: if true, will read an additional line that will be the capacity/demand max/min(s) depending on the attribute we are reading. (<= constraint is capacity / max, >= constraint is demand/min)
-
-
+    for both vector<vector<long>> candidateCapacityAttributes and candidateDemandAttributes:
+        each vector<long> is for the ith demand/capacity attribute, with index 0 of this 
+        vector being associated with the first candidate and the rest following in an incrementing pattern
+    
+    for vector<vector<long>> candidateCostAttributes:
+        each vector<long> holds the values of every item for a given case, with each item stored as the first being at index 0. 
+        There are 6 vector<long>'s, attributed to the being six MDMKP cases (0-5). The definition of the cases are clarified at 
+        separateCandidatesByCases(). Each case has unique cost attribue vals (which is why they are separate)
+    
+    for vector<long> knapsackCapacityVals and vector<long> knapsackDemandRequirementVals:
+        Capacity/demand right coefficients (for demands these are the value we need to be >= to and for capacity its what we need to be <=)
+        are stored in these vector<long>'s with the first value being attributed to the first demand/capacity and so on. Every case uses the same demand/capacity values,
+        but do note some cases only use part of the demandRequirementVals, not all (clarified at separateCandidatesByCases())
 */
-
-class MDMKRawProblem // each MDMKRawProblem is actually a set of 6 problems in 1 entity, but processing must be done for that to formm thus the "raw" name
+class MDMKRawProblem // each MDMKRawProblem is actually a set of 6 problems in 1 entity, but processing must be done for that to form thus the "raw" name
 {
     private:
-        vector<vector<long>> candidateCapacityAtrributes;
-        vector<vector<long>> candidateDemandAtrributes;
-        vector<vector<long>> candidateCostAtrributes;
+        vector<vector<long>> candidateCapacityAttributes;
+        vector<vector<long>> candidateDemandAttributes;
+        vector<vector<long>> candidateCostAttributes;
         vector<long> knapsackCapacityVals;
         vector<long> knapsackDemandRequirementVals;
     public:
-        vector<vector<long>>& getcandidateCapacityAtrributes() { return candidateCapacityAtrributes; } 
-        vector<vector<long>>& getcandidateDemandAtrributes() { return candidateDemandAtrributes; }
-        vector<vector<long>>& getCandidateValue() { return candidateCostAtrributes; }
+        vector<vector<long>>& getcandidateCapacityAttributes() { return candidateCapacityAttributes; } 
+        vector<vector<long>>& getcandidateDemandAttributes() { return candidateDemandAttributes; }
+        vector<vector<long>>& getCandidateValue() { return candidateCostAttributes; }
         vector<long>& getknapsackCapacityVals() { return knapsackCapacityVals; }
         vector<long>& getknapsackDemandRequirementVals() { return knapsackDemandRequirementVals; }
 
 };
 
+//stores all the attributes of a candidate that can be added to the knapsack. for capacity and demand, the first values are associated with the 1st demands and so on...
 struct MDMKCandidate
 {
     vector<long> capacityVal; // How much capacity this candidate takes up for each capacity constraint
@@ -48,6 +48,8 @@ struct MDMKCandidate
     long value; // "Cost": how much this item is worth (either +/- depending on the case)
 };
 
+// can either be used to store all cases or only 1. A 1 case version will just use .problemByCase[0] when referencing candidates
+// in my code just to more explicitly show that the object is built for 1 case and not all 6
 struct problemSet
 {
     vector < vector <MDMKCandidate> > problemsByCase;
@@ -56,10 +58,10 @@ struct problemSet
 };
 
 
-//Formats MKMDProblem into their 6 respective cases, in accordance to the brunel paper. Here is a definition of each case:
+//Formats MKMDRawProblem into their 6 respective cases, stored in problemsByCase of pproblemSet in accordance to the brunel paper. Here is a definition/order of each case:
 /* 
-    Note that "q" is the number of demand constraints (>=) and "m" is the number of capacity (<=) constraints
-    These constraints are picked in order as they show up. EX: when q=1, it means only the first demand constraint is considered
+Note that "q" is the number of demand constraints (>=) and "m" is the number of capacity (<=) constraints
+These constraints are picked in order as they show up. EX: when q=1, it means only the first demand constraint is considered
     Positive cost/value cases
     Case 1: q = 1
     Case 2: q = m/2
@@ -68,67 +70,59 @@ struct problemSet
     Case 4: q = 1
     Case 5: q = m/2
     Case 6: q = m
-*/
+Note that each problem has 100 candidates to consider
+    */
 void separateCandidatesByCases(MDMKRawProblem& problem, problemSet& candidatesByCase) 
 {
     candidatesByCase.problemsByCase.resize(6); // new thing learned! Can be used to easily create uninitialized values inside of the vector (or reshape vector to fit this function's usage)
-    vector<vector<long>> MDMKCapacityAttributes = problem.getcandidateCapacityAtrributes(); 
-    vector<vector<long>> MDMKDemandAttributes = problem.getcandidateDemandAtrributes();
+    vector<vector<long>> MDMKCapacityAttributes = problem.getcandidateCapacityAttributes(); 
+    vector<vector<long>> MDMKDemandAttributes = problem.getcandidateDemandAttributes();
     vector<vector<long>> MDMKValue = problem.getCandidateValue();
     long capacityVarsCount = MDMKCapacityAttributes.size(); //Shortcut to finding the amount of capacity variables (dimensions) for the problem
     long candidateCount = MDMKCapacityAttributes[0].size();//This is a way to find the # of candidates we have without having to pass directly (not too efficient, but less params = simpler). Only works if problem is not empty
     int caseDemand1 = 1; //sort of pointless but slightly more readable as it describes what the value 1 is for (Case 1 of MDMKP problems)
     int caseDemand2 = capacityVarsCount / 2;
     int caseDemand3 = capacityVarsCount; // Note that case 1,2,3 are repeated for case 4,5,6 respectively
-     int order[6] = {0,3,1,4,2,5}; //order which we want to get candidates (most efficient order for the cases)
-    for(int i{0}; i < candidateCount; i++)
+    int order[6] = {0,3,1,4,2,5}; //order which we want to get candidates (most efficient order for the cases)
+    for(int i{0}; i < candidateCount; i++) // for every candidate...
     {
-        MDMKCandidate candidate;
-        for(int c{0}; c < capacityVarsCount; c++)
+        MDMKCandidate candidate; 
+        for(int c{0}; c < capacityVarsCount; c++) //For every capacity constraint...  //every candidate has the same capacity vals for every problem case
             candidate.capacityVal.push_back(MDMKCapacityAttributes[c][i]);
-        
-       
-        for(int caseNum{0}; caseNum < 6; caseNum++) //Changes candidate to each case (note that caseNum = 0 is case 1 and caseNum = 5 is case 6)
+               
+        for(int caseNum{0}; caseNum < 6; caseNum++) //Shapes candidate demand and value for its respective case (note that caseNum = 0 is case 1 and caseNum = 5 is case 6)
         {
             int currentCase = order[caseNum];
-            candidate.value = MDMKValue[currentCase][i];
+            candidate.value = MDMKValue[currentCase][i]; //each case gives a unique cost to the candidate
 
-            for(int currDemand{0}; currDemand < capacityVarsCount; currDemand++) //stops at case 6 (where same # of demands as capacity constraints)
+            for(int currDemand{0}; currDemand < capacityVarsCount; currDemand++) //stops at case 6 (where same # of demands as capacity constraints / q = m)
             {
+                candidate.demandVal.push_back(MDMKDemandAttributes[currDemand][i]); //adding on the item's demandAttributes, one at a time
                 // WARNING: Very ugly if statement below!
-                candidate.demandVal.push_back(MDMKDemandAttributes[currDemand][i]);
-
-                if ( (currDemand == caseDemand3 - 1 && (currentCase == 2 || currentCase == 5)) || (currDemand == caseDemand2 - 1 && (currentCase == 1 || currentCase == 4) ) || (currDemand == caseDemand1 - 1 && (currentCase == 0 || currentCase == 3)) ) //these checks are really inefficient but they work!
-                {
-                    candidatesByCase.problemsByCase[currentCase].push_back(candidate);
-                    
-                }      
-            }
-            
+                // I build it like this as its more efficient to start with demand size = 1 cases then add onto it to get to the size = capacity case (30 demands) rather
+                // than going out of order and having to remark the candidate object multiple times
+                // Effectively, once a case's demand size is met, it adds the candidate to the respective place in .problemsByCase
+                if ( (currDemand == caseDemand3 - 1 && (currentCase == 2 || currentCase == 5)) || (currDemand == caseDemand2 - 1 && (currentCase == 1 || currentCase == 4) ) || (currDemand == caseDemand1 - 1 && (currentCase == 0 || currentCase == 3)) ) //these checks are weird but it works!
+                    candidatesByCase.problemsByCase[currentCase].push_back(candidate);              
+            }     
             candidate.demandVal.clear();///
         }
-        
     }
 }
 
 void RawProblemsToCases(vector<MDMKRawProblem>& problems, vector<problemSet>& cases)
 {
     problemSet candidatesByCase;
-    candidatesByCase.problemsByCase.resize(6);
-    //cases.resize(0);
-    /* for(problemSet problem : cases)
-        problem.problemsByCase.resize(6); */
-    
+    candidatesByCase.problemsByCase.resize(6);    
     int size = problems.size();
-    //for(MDMKRawProblem problem : problems)
-    for(int i{0}; i < size; i++)
+    for(int i{0}; i < size; i++) // for each block of problems... (15 total in dataset ct7, with 6 cases in each block)
     {
-        
-        separateCandidatesByCases(problems[i], candidatesByCase);
+        separateCandidatesByCases(problems[i], candidatesByCase); //separates the block into the respective 6 case problems
         cases.push_back(candidatesByCase);
-        cases[i].knapsackCapacityVals = problems[i].getknapsackCapacityVals();
-        cases[i].knapsackDemandRequirementVals = problems[i].getknapsackDemandRequirementVals();
-        candidatesByCase.problemsByCase.clear();
+        cases[i].knapsackCapacityVals = problems[i].getknapsackCapacityVals(); // copies over knapsack capacity
+        cases[i].knapsackDemandRequirementVals = problems[i].getknapsackDemandRequirementVals(); // all cases get the same demand requirementVals as the amount of demands present in candidates inside
+                                                                                                 // .problemByCases will tell us how many demand attributes to look into
+        candidatesByCase.problemsByCase.clear(); //reset to move onto the next block
     }
 }
 
@@ -156,7 +150,7 @@ void readAttributeOfMDMKP(ifstream& file, vector<vector<long>>& candidateCoeffic
 
 
 //Param of fileName is the file we want to read from, must be in the same folder as this file (though I could easily change this if needed)
-void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read MDMKP problem text files in accordance to the format done by https://people.brunel.ac.uk/~mastjjb/jeb/orlib/mdmkpinfo.html
+void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // reads MDMKP problem text files that are in accordance to the format done by https://people.brunel.ac.uk/~mastjjb/jeb/orlib/mdmkpinfo.html
 {
     
     ifstream file{fileName};
@@ -168,15 +162,15 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
     {
         MDMKRawProblem problemSet; //creates a new empty problem set for every instance
         file >> candidateCount >> leConstraints; // These are the "header" variables for the brunel samples, they apply to all cases of a single problem (6 cases)
-        vector<vector<long>> candidateCapacityAtrributes; //each vector contains a separate attribute for every candidate 
+        vector<vector<long>> candidateCapacityAttributes; //each vector contains a separate attribute for every candidate 
         vector<long> knapsackCapacityVals;
-        readAttributeOfMDMKP(file, problemSet.getcandidateCapacityAtrributes(), problemSet.getknapsackCapacityVals(), candidateCount, leConstraints, true); // reads <= constraint
+        readAttributeOfMDMKP(file, problemSet.getcandidateCapacityAttributes(), problemSet.getknapsackCapacityVals(), candidateCount, leConstraints, true); // reads <= constraints
 
-        vector<vector<long>> candidateDemandAtrributes;
+        vector<vector<long>> candidateDemandAttributes;
         vector<long> knapsackDemandRequirementVals;
-        readAttributeOfMDMKP(file, problemSet.getcandidateDemandAtrributes(), problemSet.getknapsackDemandRequirementVals(), candidateCount, leConstraints, true); // reads >= constraint
+        readAttributeOfMDMKP(file, problemSet.getcandidateDemandAttributes(), problemSet.getknapsackDemandRequirementVals(), candidateCount, leConstraints, true); // reads >= constraints
 
-        vector<vector<long>> candidateCostAtrributes; //Note that "knapsackCapacityVals" is useless here due to the boolean parameter being = false
+        vector<vector<long>> candidateCostAttributes; //Note that "knapsackCapacityVals" is useless here due to the boolean parameter being = false
         //I repurposed the leconstraints parameter to be the # of cases each model has, which is 6 for Brunel test cases
         readAttributeOfMDMKP(file, problemSet.getCandidateValue(), problemSet.getknapsackCapacityVals(), candidateCount, 6, false); // reads value of each object (Though the Brunel paper calls these "Cost" coefficients). 
         
@@ -340,7 +334,7 @@ vector<double> gurobiOnCore(problemSet& coreProblem, GRBEnv& env)
       
         model.optimize();
 
-        model.write("testModel.lp");
+        //model.write("testModel.lp");
         if(model.get(GRB_IntAttr_SolCount) == 0) return vector<double>();
         return GRBToDoubleDecisionValues(x); //returns core solution
 
@@ -400,7 +394,6 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         for(int i{0}; i < demandConstr.size(); i++)
             model.addConstr(demandConstr[i] >= caseProblem.knapsackDemandRequirementVals[i] );
       
-
         //model.set(GRB_IntParam_OutputFlag, 0); // allows suppressing of gurobi terminal output (useful for isolating messages on core approach with gurobi)
         model.optimize();
      
@@ -418,26 +411,19 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
             }        
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; //Note this relaxation makes this problem no longer an MIP, meaning there IS NO MIPGAP
         }
-        else // case of infeasible solution 
+        else // case of infeasible solution (as the x[i].get() would throw an error if our model is infeasible)
         {
             profit = -1;
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
-
-
-
-        //core problem implimentation (remmber to add to .csv at the end)
-
         blockNum++;
-        /* for(int i{0}; i < x.size(); i++)
-        {
-            cout << x[i].get(GRB_DoubleAttr_X) << '\n';
-        } */
+
+        // CORE PROBLEM CODE: //
         vector<double> solutionXVals = GRBToDoubleDecisionValues(x); //converts answer from gurobi into a from that can be altered by our core problem solver algorithm (whatever appraoch we use) below
-        vector<double> coreXVals;
-        for(int i{0}; i < x.size(); i++) // isolates core decision variables in coreXVals
+        vector<double> coreXVals; // will hold what the answer to the core is (the core are the decimal candidates of solutionXVals)
+        for(int i{0}; i < x.size(); i++) // For every decision variable.. // isolates core decision variables in coreXVals
         {
-            double decisionVal = x[i].get(GRB_DoubleAttr_X);
+            double decisionVal = x[i].get(GRB_DoubleAttr_X); //this is guaranteed as LP relaxation always ends in a feasible solution (if one exists)
             if(decisionVal != 1 && decisionVal != 0) // if item is a core problem candidate (decimal value in decision variable)
                 coreXVals.push_back(decisionVal);
         } // Note that decision vals are pushed correlated to their order in the vector<GRBVar> x, so this is a way we can keep track of our solution
@@ -446,12 +432,12 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         
 
         /////////////////Core problem solution approaches /////////////////
-        // greedyCoreSolver(coreProblem, coreXVals);
-        coreXVals = gurobiOnCore(coreProblem, env);
+        // greedyCoreSolver(coreProblem, coreXVals); // code from greedy attempt
+        coreXVals = gurobiOnCore(coreProblem, env); // tries to solve core problem with gurobi fyi: it returns infeasible (showing the core cannot be solved with any approach)
         ///////////////////////////////////////////////////////////////////
 
         //transfers coreXVals to solutionXVals
-        if(coreXVals.size() != 0) //can comment this out when not using gurobiOnCore
+        if(coreXVals.size() != 0) //can comment this out when not using gurobiOnCore, not very useful for core problem as we ultimately learned from this project that the core is often infeasible no matter what
         {
             int traverseCoreX{0};
             for(int i{0}; i < solutionXVals.size(); i++)
@@ -471,7 +457,6 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
     }
 }
 
-
 //Stores all the problems for 1 of the 6 cases in the caseSet vector
 void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& problemSets) //caseSet should be empty! Holds the answer
 {
@@ -484,7 +469,6 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
         caseSet.push_back(caseProblem);
     }
 }
-
 
 int main()
 {
@@ -501,18 +485,22 @@ int main()
    vector<MDMKRawProblem> MDMKRawProblems;
     readMDMKP("datac7.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
-    vector<problemSet> problemSets;
-    RawProblemsToCases(MDMKRawProblems, problemSets);
+    vector<problemSet> problemSets; //will store the sorted problems of each block (each block contains all 6 cases), blocks are defined by the .txt file we read from (read https://people.brunel.ac.uk/~mastjjb/jeb/orlib/mdmkpinfo.html to learn more about what a block is)
+    RawProblemsToCases(MDMKRawProblems, problemSets); // this just stores problems in a more understandable state that allows direct usage in solving algorithms
+                                                      // rawProblem's problemSet objects contains a .problemByCase of 6 elements, one for each case 
 
    /*  for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
-        formatCase(i, caseSet, problemSets);
+        formatCase(i, caseSet, problemSets); // stores the ith case from every block in caseSet (15 blocks total), 
+                                             // but note that i is one behind what you expect. EX: case 1 is i = 0, case 2 is i = 1, and so on.
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
 
+
+// In this program my goal is to test the LP relaxation approach on the hardest cases, case 3 and 6, and to see if its a valid or invalid approach for a sample size of n = 100
     vector<problemSet> case3Set; // case 3 
-    formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
+    formatCase(2, case3Set, problemSets); //yes, an input of 2 means case 3.
     runGurobiMDMKP(env, excel, case3Set, 2);
 
 /* 
