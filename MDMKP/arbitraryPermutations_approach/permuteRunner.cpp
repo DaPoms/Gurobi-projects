@@ -219,6 +219,18 @@ bool isRemoveAllowedDemand(vector<int>& knapsackCurrDemandTotals, problemSet& pr
 }
 
 // to work, currDemand/CapacityVals must be the same size as the respective problemSets demand/capacity limits
+/* bool sumConstraints(problemSet& problem, vector<int>& currCapacityVals, vector<int> currDemandVals)
+{
+    for(int c{0}; c < currCapacityVals.size(); c++) // curr must be <= the problem's cap to be feasible
+        if(currCapacityVals[c] > problem.knapsackCapacityVals[c]) return false;
+
+    for(int d{0}; d < currDemandVals.size(); d++) // curr must be >= the problem's cap to be feasible
+        if(currDemandVals[d] < problem.knapsackCapacityVals[d]) return false;
+
+    return true;
+} */
+
+// to work, currDemand/CapacityVals must be the same size as the respective problemSets demand/capacity limits
 bool isFeasible(problemSet& problem, vector<int>& currCapacityVals, vector<int> currDemandVals)
 {
     for(int c{0}; c < currCapacityVals.size(); c++) // curr must be <= the problem's cap to be feasible
@@ -230,6 +242,24 @@ bool isFeasible(problemSet& problem, vector<int>& currCapacityVals, vector<int> 
     return true;
 }
 
+void sumConstraints(problemSet& problem, vector<bool>& decisionVars, vector<long>& capacityAns, vector<long>& demandAns)
+{
+    vector<long> currCapacityVals(problem.knapsackCapacityVals.size(), 0);
+    vector<long> currDemandVals(problem.knapsackDemandRequirementVals.size() , 0);
+    for(int i{0}; i < decisionVars.size(); i++)
+    {
+        if(decisionVars[i] == true)
+        {
+            for(int c{0}; c < problem.knapsackCapacityVals.size(); c++) // curr must be <= the problem's cap to be feasible
+                currCapacityVals[c] += problem.problemsByCase[0][i].capacityVal[c];
+            for(int d{0}; d < problem.knapsackDemandRequirementVals.size(); d++) // curr must be >= the problem's cap to be feasible
+                currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d];
+        }
+    }
+    capacityAns = currCapacityVals;
+    demandAns = currDemandVals;
+}
+
 vector<bool> mapSolutionToVector(unordered_map<int,bool>& knapsackSolution) // I got lazy here, I can add templating later, but this is very easy to impliment anyways
 {
     vector<bool> solution(knapsackSolution.size());
@@ -237,7 +267,9 @@ vector<bool> mapSolutionToVector(unordered_map<int,bool>& knapsackSolution) // I
         solution[i] = knapsackSolution[i];
     return solution;
 }
-vector<bool> arbitraryPermutationSolver(problemSet& problem)
+/* 
+vector<bool> arbitraryPermutationSolver(problemSet& problem) //main running variant
+
 {
     const int amountOfPermutations = 100; // just a variable to allow fast permutation count changing
     int candidateCount = problem.problemsByCase[0].size();
@@ -297,14 +329,90 @@ vector<bool> arbitraryPermutationSolver(problemSet& problem)
                         currCapacityVals[c] -= problem.problemsByCase[0][i].capacityVal[c];
                 }
             }
-            if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution
+            if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution 
                 return mapSolutionToVector(knapsackSolution);
         }
     }
     return vector<bool>(); // case that is only reached if no feasible solution was found
 }
+ */
 
-void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, int caseCounter)
+
+void arbitraryPermutationSolver(problemSet& problem, vector<bool>& capacityApproachSol, vector<bool>& demandApproachSol) // analysis variant (for looking into our answers), answers stored in passed vectors, and only does 1 permutation (for loop must be outside this code to run more permutations)
+{
+    // const int amountOfPermutations = 100; // just a variable to allow fast permutation count changing
+    int candidateCount = problem.problemsByCase[0].size();
+    vector<int> window(candidateCount); // I ultimately couldn't use the std::array library as for that library, arrays must have their size determined at compile time. For some reason my c-style arrays worked when they shouldn't, so I'm avoiding that practice
+    for(int i{0}; i < candidateCount; i++) // the original window that will be scrambled from
+        window[i] = i;
+ 
+    unordered_map<int, bool> knapsackSolution; 
+
+            vector<int> shuffled = window; //always shuffle from the starting array to make randomization completely independent. Note: copy constructor only works if you do not define size
+            generatePermutation(shuffled);
+
+            vector<int> currCapacityVals(problem.knapsackCapacityVals.size(), 0); //used for first phase
+            vector<int> currDemandVals(problem.problemsByCase[0][0].demandVal.size(), 0); // used for second phase, but first must store the max possible demand values (if all candidates included)
+            // Do note demandVals variate by case, so we use the amount of demands in a candidate to determine how many demand vals the problem has
+            
+            for(int i{0}; i < candidateCount; i++) // prepares solution for <= approach, in which on an empty knapsack you keep on adding to knapsack so long as the knapsack retains <= satisfaction
+                    knapsackSolution[i] = 0;
+            for(int i : shuffled) // <= approach. For every candidate...
+            {
+                if(isAddAllowedCapacity(currCapacityVals, problem, i)) //add item if it doesn't make a <= constraint false
+                {
+                    knapsackSolution[i] = 1;
+                    for(int c{0}; c < currCapacityVals.size(); c++)
+                        currCapacityVals[c] += problem.problemsByCase[0][i].capacityVal[c];
+                    for(int d{0}; d < currDemandVals.size(); d++) //even though demand isn't directly needed, this allows very easy feasibility checking
+                        currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d];
+                }
+            }
+           
+                capacityApproachSol = mapSolutionToVector(knapsackSolution); // for printing to excel the data, we force it to print even if not feasible so that we can examine the solution
+
+            //prepares solution for >= approach, in which on a knapsack holding every item you keep on removing from the knapsack so long as the knapsack retains >= satisfaction
+            fill(currDemandVals.begin(), currDemandVals.end(), 0); //from algorithm library (could also be done with just a simple for loop). Resets the current demand vals for the next phase
+            fill(currCapacityVals.begin(), currCapacityVals.end(), 0);
+            for(int i{0}; i < candidateCount; i++) //stores knapsack demand + capacity vals if all items were put in the bag 
+            {
+                for(int d{0}; d < currDemandVals.size(); d++)
+                    currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d]; 
+                for(int c{0}; c < currCapacityVals.size(); c++) // capacity is not necessary for this phase of the algorithm but rather an efficiency to speedup feasibility checking
+                    currCapacityVals[c] += problem.problemsByCase[0][i].capacityVal[c];
+            }
+            for(int i{0}; i < candidateCount; i++) //For every candidate... 
+                knapsackSolution[i] = 1; //we fill the bag with every single item, disregarding capacity
+            for(int i : shuffled) // >= approach. For every candidate...
+            {
+                if(isRemoveAllowedDemand(currDemandVals, problem, i)) //remove item if it doesn't make a >= constraint false
+                {
+                    knapsackSolution[i] = 0;
+                    for(int d{0}; d < currDemandVals.size(); d++)
+                        currDemandVals[d] -= problem.problemsByCase[0][i].demandVal[d];
+                    for(int c{0}; c < currCapacityVals.size(); c++)
+                        currCapacityVals[c] -= problem.problemsByCase[0][i].capacityVal[c];
+                }
+            }
+         
+                 demandApproachSol = mapSolutionToVector(knapsackSolution); 
+        
+
+
+}
+
+template<typename T> // row will make a newline at the end
+void outputVectorToCSVRow(ofstream& excel, vector<T>& passedVect, string optionalRowHeader = "")
+{
+    excel << optionalRowHeader << ","; //every element in a row needs to be separated by a comma for a csv ("comma separated value" file)
+    for(int i{0}; i < passedVect.size(); i++)
+    {
+        excel << passedVect[i] << ",";
+    }
+    excel << '\n';
+}
+
+void runWarmGurobiMDMKP(GRBEnv& env, ofstream& capacityExcel, ofstream& demandExcel,  vector<problemSet>& caseNums, int caseCounter)
 {
     int blockNum{1};
     for(auto caseNum : caseNums)
@@ -349,40 +457,121 @@ void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
             model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
 //////////////////// Warm start code ///////////////
 
-auto start = chrono::high_resolution_clock::now();
-vector<bool> warmSol = arbitraryPermutationSolver(caseNum);
-auto stopTime = chrono::high_resolution_clock::now();
-long long runTime = chrono::duration_cast<chrono::seconds>(stopTime - start).count();
-if(warmSol.size() > 0)
+// auto start = chrono::high_resolution_clock::now();
+for(int perm{0}; perm < 100; perm++) // run 100 times for the test
+{
+    vector<bool> capacityApproachWarmSol;
+    vector<bool> demandApproachWarmSol;
+    arbitraryPermutationSolver(caseNum, capacityApproachWarmSol, demandApproachWarmSol);
+/*     for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) // this is also code for the analysis version (comment out when not doing analysis)
+    {
+        string intro = "item " + to_string(i);
+        capacityExcel << capacityApproachWarmSol[i]; // shows if item was added to bag or not
+        outputVectorToCSVRow(capacityExcel, caseNum.problemsByCase[0][i].capacityVal, ("," + intro + " capacity vals") );
+        outputVectorToCSVRow(capacityExcel, caseNum.problemsByCase[0][i].demandVal, ("," + intro + " demand vals") );
+
+        demandExcel << demandApproachWarmSol[i]; // shows if item was added to bag or not
+        outputVectorToCSVRow(demandExcel, caseNum.problemsByCase[0][i].capacityVal, ("," + intro + " capacity vals") );
+        outputVectorToCSVRow(demandExcel, caseNum.problemsByCase[0][i].demandVal, ("," + intro + " demand vals") );
+    }     */
+    vector<long> capacityTotal;
+    vector<long> demandTotal;
+    //capacity first excel
+    sumConstraints(caseNum, capacityApproachWarmSol, capacityTotal, demandTotal);
+    outputVectorToCSVRow(capacityExcel, capacityTotal, ",Solution capacity total" );
+    vector<long> offBy(capacityTotal.size(), 0);
+    for(int c{0}; c < capacityTotal.size(); c++) //calculates how far solution was (+/-) from having correct capacity for each capacity constraint
+    {
+        offBy[c] = caseNum.knapsackCapacityVals[c] - capacityTotal[c];
+        if(offBy[c] > 0) //if positive, then answer is plausible for capacity as it calls for <=
+            offBy[c] = 0; 
+    }
+    outputVectorToCSVRow(capacityExcel, offBy, ",Capacity is Off By:" );
+
+    outputVectorToCSVRow(capacityExcel, demandTotal, ",Solution Demand Total" );
+    fill(offBy.begin(), offBy.end(), 0);
+    for(int d{0}; d < demandTotal.size(); d++) //calculates how far solution was (+/-) from having correct capacity for each capacity constraint
+    {
+        offBy[d] = caseNum.knapsackDemandRequirementVals[d] - demandTotal[d];
+        if(offBy[d] < 0) //if negative, then answer is plausible for demand as it calls for >=. If we go over the requirement, offBy gives a negative answer
+            offBy[d] = 0; //0 just means that the condition was met 
+    }
+    outputVectorToCSVRow(capacityExcel, offBy, ",Demand is Off By:" );
+    
+
+    //demand first excel
+    sumConstraints(caseNum, demandApproachWarmSol, capacityTotal, demandTotal);
+    outputVectorToCSVRow(demandExcel, capacityTotal, ",Solution Capacity Total" );
+    fill(offBy.begin(), offBy.end(), 0);
+    for(int c{0}; c < capacityTotal.size(); c++) //calculates how far solution was (+/-) from having correct capacity for each capacity constraint
+    {
+        offBy[c] = caseNum.knapsackCapacityVals[c] - capacityTotal[c];
+        if(offBy[c] > 0) //if positive, then answer is plausible for capacity as it calls for <=
+            offBy[c] = 0; 
+    }
+    outputVectorToCSVRow(demandExcel, offBy, ",Capacity is Off By:" );
+
+    outputVectorToCSVRow(demandExcel, demandTotal, ",Solution Demand Total" );
+    fill(offBy.begin(), offBy.end(), 0);
+    for(int d{0}; d < demandTotal.size(); d++) //calculates how far solution was (+/-) from having correct capacity for each capacity constraint
+    {
+        offBy[d] = caseNum.knapsackDemandRequirementVals[d] - demandTotal[d];
+        if(offBy[d] < 0) //if negative, then answer is plausible for demand as it calls for >=. If we go over the requirement, offBy gives a negative answer
+            offBy[d] = 0; //0 just means that the condition was met 
+    }
+    outputVectorToCSVRow(demandExcel, offBy, ",Demand is Off By:" );
+    capacityExcel << "\n\n";
+    demandExcel << "\n\n";
+}
+// auto stopTime = chrono::high_resolution_clock::now();
+// long long runTime = chrono::duration_cast<chrono::seconds>(stopTime - start).count();
+/* if(warmSol.size() > 0)
 {
     for(int i{0}; i < warmSol.size(); i++)
-        x[i].set(GRB_DoubleAttr_Start, warmSol[i]); //ERROR HERE
+        x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
     
-}
+} */
 ///////////////////////////////////
-        model.optimize();
+        // model.optimize();
 
         long long profit{0};
 
         //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         
-        
+/*         
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
-                if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-                    profit += caseNum.problemsByCase[0][i].value;
+                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += caseNum.problemsByCase[0][i].value; 
+                string intro = "item " + i;
+                excel << warmSol[i]; // shows if item was added to bag or not
+                outputVectorToCSVRow(excel, caseNum.problemsByCase[0][i].capacityVal, ("," + intro + " capacity vals") );
+                outputVectorToCSVRow(excel, caseNum.problemsByCase[0][i].demandVal, ("," + intro + " demand vals") );
             }        
-            // excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+           
+
+            // excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
         }   
         else // case of infeasible solution 
         {
             profit = -1;
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
-        }
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+
+                string intro = "item " + i;
+                excel << warmSol[i]; // adds if we included item or not
+                outputVectorToCSVRow(excel, caseNum.problemsByCase[0][i].capacityVal, ("," + intro + " capacity vals") );
+                outputVectorToCSVRow(excel, caseNum.problemsByCase[0][i].demandVal, ("," + intro + " demand vals") );
+            }   
+        } 
+         */
+
         blockNum++;
+        // outputVectorToCSVRow(excel, caseNum., )
+        demandExcel << "\n\n\n";
+        capacityExcel << "\n\n\n";
     }
 }
 
@@ -403,8 +592,11 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 int main()
 {
    
-    ofstream excel("MDMKP_permutations.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
+    ofstream capacityExcel("MDMKP_permutations_capacity.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream demandExcel("MDMKP_permutations_demand.csv");
+    // excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
+    capacityExcel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
+    demandExcel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
@@ -420,18 +612,18 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
 
-    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+ /*    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runWarmGurobiMDMKP(env, excel, caseSet, i);
-    }
+    } */
 
-/*     
+ 
     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
-    runWarmGurobiMDMKP(env, excel, case3Set, 2);
-   */
+    runWarmGurobiMDMKP(env, capacityExcel, demandExcel, case3Set, 2);
+   
     /* 
     //case 6
     vector<problemSet> case6Set; // case 6
