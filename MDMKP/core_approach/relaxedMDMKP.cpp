@@ -330,7 +330,7 @@ vector<double> gurobiOnCore(problemSet& coreProblem, GRBEnv& env, ofstream& exce
         }
         for(int i{0}; i < demandConstr.size(); i++)
             model.addConstr(demandConstr[i] >= coreProblem.knapsackDemandRequirementVals[i] );
-      
+        // model.set(GRB_IntParam_OutputFlag, 0);
         model.optimize();
 
         //model.write("testModel.lp");
