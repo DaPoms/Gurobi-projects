@@ -178,7 +178,20 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
     }
 }
 
-///////////////////// end of file reading code /////////////////////
+//Stores all the problems for 1 of the 6 cases in the caseSet vector
+void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& problemSets) //caseSet should be empty! Holds the answer
+{
+    for(int i{0}; i < problemSets.size(); i++)
+    {
+        problemSet caseProblem;
+        caseProblem.problemsByCase.push_back(problemSets[i].problemsByCase[caseNum]);
+        caseProblem.knapsackCapacityVals = problemSets[i].knapsackCapacityVals;
+        caseProblem.knapsackDemandRequirementVals = problemSets[i].knapsackDemandRequirementVals;
+        caseSet.push_back(caseProblem);
+    }
+}
+
+///////////////////// end of file reading / data organizing code /////////////////////
 
 template <typename T = int> // Just decided to refresh myself on templating, it's been a while
 void generatePermutation(vector<T>& toBeShuffled)
@@ -211,7 +224,7 @@ bool isRemoveAllowedDemand(vector<long>& knapsackCurrDemandTotals, problemSet& p
 
 
 // to work, currDemand/CapacityVals must be the same size as the respective problemSets demand/capacity limits
-bool isFeasible(problemSet& problem, vector<int>& currCapacityVals, vector<int> currDemandVals)
+bool isFeasible(problemSet& problem, vector<long>& currCapacityVals, vector<long> currDemandVals)
 {
     for(int c{0}; c < currCapacityVals.size(); c++) // curr must be <= the problem's cap to be feasible
         if(currCapacityVals[c] > problem.knapsackCapacityVals[c]) return false;
@@ -222,26 +235,45 @@ bool isFeasible(problemSet& problem, vector<int>& currCapacityVals, vector<int> 
     return true;
 }
 
-/* void sumConstraints(problemSet& problem, vector<bool>& decisionVars, vector<long>& capacityAns, vector<long>& demandAns)
+void sumConstraints(problemSet& problem, vector<bool>& decisionVars, vector<long>& capacityAns, vector<long>& demandAns) // capacity/demandAns are just parameters that hold the answer (the sum of each constraint, demand/capacity)
 {
     vector<long> currCapacityVals(problem.knapsackCapacityVals.size(), 0);
-    vector<long> currDemandVals(problem.knapsackDemandRequirementVals.size() , 0);
-    for(int i{0}; i < decisionVars.size(); i++)
+    vector<long> currDemandVals(problem.problemsByCase[0][0].demandVal.size(), 0);
+    for(int i{0}; i < decisionVars.size(); i++) //goes through all candidates. This would also work with i < problem.problemByCase[0].size() but that is less readable to me. 
     {
         if(decisionVars[i] == true)
         {
             for(int c{0}; c < problem.knapsackCapacityVals.size(); c++) // curr must be <= the problem's cap to be feasible
                 currCapacityVals[c] += problem.problemsByCase[0][i].capacityVal[c];
-            for(int d{0}; d < problem.knapsackDemandRequirementVals.size(); d++) // curr must be >= the problem's cap to be feasible
+            for(int d{0}; d < problem.problemsByCase[0][0].demandVal.size(); d++) // Must use the demand vector stored in a candidate as the candidate demands shows how many demands are being considered for the case.
+                                                                                  //curr must be >= the problem's cap to be feasible
                 currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d];
         }
     }
+    //stores answer in the 2 passed vector<long>'s
     capacityAns = currCapacityVals;
     demandAns = currDemandVals;
-} */
+}
 
+//just sumOffBy but it considers both demand and capacity for offby, not just one. (In cases where we arent solving just one side, such as tabu-search)
+long sumOffByTotal(problemSet& problem, vector<long>& currCapacityTotals, vector<long>& currDemandTotals) //returns the absolute value sum of how off the knapsack was from a feasible solution
+{
+    vector<long>& knapsackCapacityLimits = problem.knapsackCapacityVals;
+    vector<long>& knapsackDemandLimits = problem.knapsackDemandRequirementVals;
+    long offBy{0};
 
-long sumOffBy(vector<long>& knapsackConstraintLimits, vector<long> currConstraintTotals, bool isSolvedForCapacity) //returns the absolute value sum of how off the knapsack was from a feasible solution
+        for(int i{0}; i < knapsackCapacityLimits.size(); i++) 
+            if(knapsackCapacityLimits[i] < currCapacityTotals[i]) //only difference caused by isSolvedForCapacity
+                offBy += (knapsackCapacityLimits[i] - currCapacityTotals[i]) * -1; //we do abs val to make sure being off hurts the solutions score for demands (higher offBy val == worse solution)
+
+        for(int i{0}; i < problem.problemsByCase[0][0].demandVal.size(); i++) // once again have to use the size of demand vector of a candidate as only the candidate shows how many demands are considered for a given case/problem
+            if(knapsackDemandLimits[i] > currDemandTotals[i]) 
+                offBy += (knapsackDemandLimits[i] - currDemandTotals[i] ); // offBy uses the absolute value, and this if statement guarantees this to be negative , so we * -1 to make it positive
+        
+    return offBy;
+}
+
+long sumOffBy(vector<long>& knapsackConstraintLimits, vector<long> currConstraintTotals, bool isSolvedForCapacity) //returns the absolute value sum of how off the knapsack was from a feasible solution for a solution that is feasible for one side (demand OR capacity constraints)
 { // I do admit using isSolvedForCapacity is very clunky and makes the code less readable/more redundant
     long offBy{0};
     if(isSolvedForCapacity) // if isSolvedForCapacity is true, it means that the offBy for capacity for each constraint will = 0, so we ignore it in our offBy calculation, only caring for demands
@@ -267,7 +299,8 @@ long sumOffBy(vector<long>& knapsackConstraintLimits, vector<long> currConstrain
 bool isBestSol(vector<long>& knapsackConstraintLimit, vector<long>& currConstraintTotals, long currBestTotalOffBy, long& candidateOffBy, bool isCandidateSolvedForCapacity) //best sol is the one closest to feasibility, though if both are feasible (the current best and the one to be picked, its picks the best obj val total between them)
 { //the bool isCandidateSolvedForCapacity reduces redundancy in processing (via sumOffBy()) but does force my code to be less readable
     candidateOffBy = sumOffBy(knapsackConstraintLimit, currConstraintTotals, isCandidateSolvedForCapacity);
-    if (candidateOffBy < currBestTotalOffBy) return true; // for the best, the lower the value, the better
+    if (candidateOffBy < currBestTotalOffBy) 
+        return true; // for the best, the lower the value, the better
     return false;
 }
 
@@ -322,7 +355,7 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
             if(isBestSol(problem.knapsackDemandRequirementVals, currDemandVals, bestTotalOffBy, candidateOffBy, true)) // note that currBestTotalOffBy just stores the answer of OffBy for the current solution, showing how off it is from being feasible
             {    
                 bestTotalOffBy = candidateOffBy; 
-                answer[1] = mapSolutionToVector(knapsackSolution); // for this implimentation, answer has only the best solution
+                answer[0] = mapSolutionToVector(knapsackSolution); // for this implimentation, answer has only the best solution
             }
 
             //prepares solution for >= approach, in which on a knapsack holding every item you keep on removing from the knapsack so long as the knapsack retains >= satisfaction
@@ -353,7 +386,7 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
             if(isBestSol(problem.knapsackCapacityVals, currCapacityVals, bestTotalOffBy, candidateOffBy, false)) // we pass capacity vals as the opposite of what we solve for is considered in the best solution, as we already solved for the demand constraint to be met
             {    
                 bestTotalOffBy = candidateOffBy; 
-                answer[1] = mapSolutionToVector(knapsackSolution); 
+                answer[0] = mapSolutionToVector(knapsackSolution); 
             }
         }
     // }
@@ -361,7 +394,7 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
 }
 
 
-vector< vector<bool> > generateNeighborhood( vector<bool> initSol) //generates the entire neighborhood of possible solutions. We do not pass by reference just so we dont have to make a useless extra var, and it makes more sense (a neighbor is just the initSol with candidate flipped (true -> false or false --> true) )
+vector< vector<bool> > generateNeighborhood( vector<bool>& initSol) //generates the entire neighborhood of possible solutions. We do not pass by reference just so we dont have to make a useless extra var, and it makes more sense (a neighbor is just the initSol with candidate flipped (true -> false or false --> true) )
 {
     int candidateCount = initSol.size();
     vector< vector<bool> > neighborhood(candidateCount); //when we know the size, this allows us to avoid using .push_back() which is less efficient than direct indexing assignment
@@ -375,9 +408,49 @@ vector< vector<bool> > generateNeighborhood( vector<bool> initSol) //generates t
     return neighborhood;
 }
 
+
+//TODO: ASPIRATION CRITERION + TABU
 vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
 {
+    vector<bool> sol = initSol;
+/*     if(isFeasible(problem, currCapacityTotals, currDemandTotals)) // DELETE. THIS IS DEBUGGING CODE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        cout << "1"; */
+    //for/while statement goes here (the bulk of the behavior)
+    // while() {
+    
+    vector<long> currCapacityTotals;
+    vector<long> currDemandTotals;
+    sumConstraints(problem, sol, currCapacityTotals, currDemandTotals); // calculates current demand/capacity totals (note we only have to do this once, as the ith neighbor will have a very similar demand/capacity Total but with the ith item taken out)
+    long currOffBy = sumOffByTotal(problem, currCapacityTotals, currDemandTotals); //This is the offBy value of the solution that all the neighbors branched from
+    int bestNeighborI{-1}; // the index of the best neighbor in the neighborhood which will be at the end used as the new root for forming the next neighborhood (thus this is related to currOffBy)
+
+    long bestOffByAmongstNeighbors{INT_MAX}; // this is to store the backup solution, int_max guarantees the 1st neighbor will be stored in this var (as max is the worst possible answer)
+    int bestNeighborAmongstNeighborsI; //index of the best solution between neighbors 
     vector< vector<bool> > neighborhood = generateNeighborhood(initSol);
+    for(int i{0}; i < neighborhood.size(); i++) // for loop for picking the best neighbor
+    {
+        vector<long> neighborCapacityTotals;
+        vector<long> neighborDemandTotals;
+        sumConstraints(problem, neighborhood[i], neighborCapacityTotals, neighborDemandTotals);
+        long neighborOffBy = sumOffByTotal(problem, neighborCapacityTotals, neighborDemandTotals);
+
+        if(neighborOffBy < currOffBy) //normal case, picks the neighbor that improves most upon the root solution //NOTE TO SELF, NEED TO PROGRAM BEHAVIOR OF WHAT TO DO IF ALL TABU
+        {
+            currOffBy = neighborOffBy; // the neighbor is considered to be the next solution
+            bestNeighborI = i;
+        }
+        else if(neighborOffBy < bestOffByAmongstNeighbors) //backup solution in case all neighbors are worse than the root solution (picks the best OffBy between the neighbors)
+        { // Note that this case doesn't consider the root solution at all
+            bestNeighborAmongstNeighborsI = i;
+            bestOffByAmongstNeighbors = neighborOffBy; 
+        }
+    }
+    // assigns the best neighbor compared to the root (if possible) or compared amongst neighbors as the root for the next neighborhood formation
+    if(bestNeighborI != -1) 
+        sol = neighborhood[bestNeighborI];
+    else //if == -1, then it means no neighbor was better than the root solution, so we need to use our backup answer (the best answer amongst neighbors, not compared to the root)
+        sol = neighborhood[bestNeighborAmongstNeighborsI];
+
     return vector<bool>();
 }
 
@@ -440,21 +513,23 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 //////////////////// Warm start code ///////////////
 
 auto start = chrono::high_resolution_clock::now();
-arbitraryPermutationSolver(caseNum);
+vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
 auto stopTime = chrono::high_resolution_clock::now();
 long long runTime = chrono::duration_cast<chrono::seconds>(stopTime - start).count();
 
-// warmStartFunction(initSol);
-/* if(warmSol.size() > 0) //replace this part with choosing best answer
+
+vector<bool> warmSol = warmStartFunction(initSols[0], caseNum); // currently this is tabu search, uses the passed heuristic to get hopefully a feasible solution
+
+//feeds solution as a warm start for gurobi
+if(warmSol.size() > 0) // sort of pointless error catching but just in case
 {
     for(int i{0}; i < warmSol.size(); i++)
         x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
-    
-}  */
+} 
 
 
 
-////////// template for the function we are using goes here //////////
+
 ///////////////////////////////////
         model.optimize();
 
@@ -479,18 +554,7 @@ long long runTime = chrono::duration_cast<chrono::seconds>(stopTime - start).cou
     }
 }
 
-//Stores all the problems for 1 of the 6 cases in the caseSet vector
-void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& problemSets) //caseSet should be empty! Holds the answer
-{
-    for(int i{0}; i < problemSets.size(); i++)
-    {
-        problemSet caseProblem;
-        caseProblem.problemsByCase.push_back(problemSets[i].problemsByCase[caseNum]);
-        caseProblem.knapsackCapacityVals = problemSets[i].knapsackCapacityVals;
-        caseProblem.knapsackDemandRequirementVals = problemSets[i].knapsackDemandRequirementVals;
-        caseSet.push_back(caseProblem);
-    }
-}
+
 
 
 int main()
@@ -515,18 +579,19 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
 
-    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+ /*    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, caseSet, i);
-    }
+    } */
 
  
-/*     vector<problemSet> case3Set; // case 3 
+    vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case3Set, 2); //you pass functions just by name
-    */
+   
+
     /* 
     //case 6
     vector<problemSet> case6Set; // case 6
