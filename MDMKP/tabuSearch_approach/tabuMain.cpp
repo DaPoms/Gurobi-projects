@@ -10,6 +10,7 @@ using namespace std;
 #include <algorithm> // for shuffle()
 #include <unordered_map>
 #include <chrono> // for using the clock to select a random seed
+#include <utility> // for std::pair
 
 
 
@@ -261,7 +262,6 @@ long sumOffByTotal(problemSet& problem, vector<long>& currCapacityTotals, vector
     vector<long>& knapsackCapacityLimits = problem.knapsackCapacityVals;
     vector<long>& knapsackDemandLimits = problem.knapsackDemandRequirementVals;
     long offBy{0};
-
         for(int i{0}; i < knapsackCapacityLimits.size(); i++) 
             if(knapsackCapacityLimits[i] < currCapacityTotals[i]) //only difference caused by isSolvedForCapacity
                 offBy += (knapsackCapacityLimits[i] - currCapacityTotals[i]) * -1; //we do abs val to make sure being off hurts the solutions score for demands (higher offBy val == worse solution)
@@ -269,7 +269,6 @@ long sumOffByTotal(problemSet& problem, vector<long>& currCapacityTotals, vector
         for(int i{0}; i < problem.problemsByCase[0][0].demandVal.size(); i++) // once again have to use the size of demand vector of a candidate as only the candidate shows how many demands are considered for a given case/problem
             if(knapsackDemandLimits[i] > currDemandTotals[i]) 
                 offBy += (knapsackDemandLimits[i] - currDemandTotals[i] ); // offBy uses the absolute value, and this if statement guarantees this to be negative , so we * -1 to make it positive
-        
     return offBy;
 }
 
@@ -396,7 +395,7 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
 
 vector< vector<bool> > generateNeighborhood( vector<bool>& initSol) //generates the entire neighborhood of possible solutions. We do not pass by reference just so we dont have to make a useless extra var, and it makes more sense (a neighbor is just the initSol with candidate flipped (true -> false or false --> true) )
 {
-    int candidateCount = initSol.size();
+    int candidateCount = initSol.size(); //initSol holds the candidate count
     vector< vector<bool> > neighborhood(candidateCount); //when we know the size, this allows us to avoid using .push_back() which is less efficient than direct indexing assignment
     for(int i{0}; i < candidateCount; i++) // neighborhood is = the number of candidates there are, but each neighbor is exactly one candidate off from the original solution (ex: we change the first candidate from 1 -> 0)
     {
@@ -404,28 +403,49 @@ vector< vector<bool> > generateNeighborhood( vector<bool>& initSol) //generates 
         neighborhood[i] = initSol;
         initSol[i] = !initSol[i]; //flips i-th candidate back to its original state (to prepare for the next neighbor without having to fully overwrite initSol)
     }
-
     return neighborhood;
 }
 
+
+void singleInsertionSortPair(pair<int, int> candidate, vector< pair<int,int> >& vect) // sorts only one element via insertion sort, thus we must infer that the rest of the vector is already sorted
+{
+    int i{0};
+    while( (i < vect.size()) && (candidate.second > vect[i].second) )
+        i++;
+    vect.insert(vect.begin() + i, candidate);
+    
+}
+
+int generateRandInt(int start, int end)
+{
+    unsigned int seed = chrono::system_clock::now().time_since_epoch().count(); //keeps track of time without needing to update manually, which holds a benefit over std::time_t
+    mt19937 engine(seed); //change the seed to ensure random permutations
+    uniform_int_distribution numGen(start, end);
+    
+    
+    return numGen(engine);
+}
 
 //TODO: ASPIRATION CRITERION + TABU
 vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
 {
     vector<bool> sol = initSol;
-/*     if(isFeasible(problem, currCapacityTotals, currDemandTotals)) // DELETE. THIS IS DEBUGGING CODE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        cout << "1"; */
+
+    vector< pair< int, int> > tabuMemory(initSol.size(), pair<int, int>(0,0) ); // .first is the index of the neighbor and .second is the duration of this neighbor being deemed tabu. Duration  = 0 means not currently tabu
+    for(int i{0}; i < initSol.size(); i++)
+        tabuMemory[i].first = i;
+    int baseTabuDuration{3};
+    int tabuRandomDuration; // randomized between the ints -3,3
+
     //for/while statement goes here (the bulk of the behavior)
     // while() {
-    
+    vector< pair<int, int> > orderedOffByOfNeighbors; // first is the neighbor index and the second is the offBy value of that neighbor
+
     vector<long> currCapacityTotals;
     vector<long> currDemandTotals;
     sumConstraints(problem, sol, currCapacityTotals, currDemandTotals); // calculates current demand/capacity totals (note we only have to do this once, as the ith neighbor will have a very similar demand/capacity Total but with the ith item taken out)
-    long currOffBy = sumOffByTotal(problem, currCapacityTotals, currDemandTotals); //This is the offBy value of the solution that all the neighbors branched from
-    int bestNeighborI{-1}; // the index of the best neighbor in the neighborhood which will be at the end used as the new root for forming the next neighborhood (thus this is related to currOffBy)
-
-    long bestOffByAmongstNeighbors{INT_MAX}; // this is to store the backup solution, int_max guarantees the 1st neighbor will be stored in this var (as max is the worst possible answer)
-    int bestNeighborAmongstNeighborsI; //index of the best solution between neighbors 
+    long coreOffBy = sumOffByTotal(problem, currCapacityTotals, currDemandTotals); //This is the offBy value of the solution that all the neighbors branched from
+   
     vector< vector<bool> > neighborhood = generateNeighborhood(initSol);
     for(int i{0}; i < neighborhood.size(); i++) // for loop for picking the best neighbor
     {
@@ -433,8 +453,9 @@ vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
         vector<long> neighborDemandTotals;
         sumConstraints(problem, neighborhood[i], neighborCapacityTotals, neighborDemandTotals);
         long neighborOffBy = sumOffByTotal(problem, neighborCapacityTotals, neighborDemandTotals);
+        singleInsertionSortPair(pair<int, int>(i, neighborOffBy), orderedOffByOfNeighbors); // we insert one at a time till all neighbors have been explored
 
-        if(neighborOffBy < currOffBy) //normal case, picks the neighbor that improves most upon the root solution //NOTE TO SELF, NEED TO PROGRAM BEHAVIOR OF WHAT TO DO IF ALL TABU
+        /* if(neighborOffBy < currOffBy) //normal case, picks the neighbor that improves most upon the root solution //NOTE TO SELF, NEED TO PROGRAM BEHAVIOR OF WHAT TO DO IF ALL TABU
         {
             currOffBy = neighborOffBy; // the neighbor is considered to be the next solution
             bestNeighborI = i;
@@ -443,15 +464,18 @@ vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
         { // Note that this case doesn't consider the root solution at all
             bestNeighborAmongstNeighborsI = i;
             bestOffByAmongstNeighbors = neighborOffBy; 
-        }
+        } */
     }
-    // assigns the best neighbor compared to the root (if possible) or compared amongst neighbors as the root for the next neighborhood formation
-    if(bestNeighborI != -1) 
-        sol = neighborhood[bestNeighborI];
-    else //if == -1, then it means no neighbor was better than the root solution, so we need to use our backup answer (the best answer amongst neighbors, not compared to the root)
-        sol = neighborhood[bestNeighborAmongstNeighborsI];
 
+    // ADD TABU MARKING HERE
+    // assigns the best neighbor compared to the root (if possible) or compared amongst neighbors as the root for the next neighborhood formation
+    //index 0 will be the best neighbor out of the bunch, with the higher the index being worse candidates
+    int i{0};
+    while(orderedOffByOfNeighbors[i].second > coreOffBy || tabuMemory[i].second != 0) // while not a better answer than the current core solution or tabu. Because only a max of 6 neighbors can be cursed at a time, we do not need to account for the case that all neighbors are cursed for this tabu implimentation
+        i++;
+    tabuMemory[i].second = baseTabuDuration + generateRandInt(-3,3); //FIX LATER ERRTHERTHERHRHKERTJKHJERTILHJERIHJIERJHOEJHERTJOH
     return vector<bool>();
+
 }
 
 
@@ -500,7 +524,7 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
             model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );
        
 //////////////////// demand constraint ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  // NEED TO CHECK CASE VAL REIJEIOGJIGJERJIGOERGIOREGJIERGJIOERGJIOERGJIOGJOERGJO
+        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  
         {
             GRBLinExpr demandExpr;
             for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
@@ -526,9 +550,6 @@ if(warmSol.size() > 0) // sort of pointless error catching but just in case
     for(int i{0}; i < warmSol.size(); i++)
         x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
 } 
-
-
-
 
 ///////////////////////////////////
         model.optimize();
