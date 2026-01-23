@@ -473,7 +473,7 @@ vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
     int i{0};
     while(orderedOffByOfNeighbors[i].second > coreOffBy || tabuMemory[i].second != 0) // while not a better answer than the current core solution or tabu. Because only a max of 6 neighbors can be cursed at a time, we do not need to account for the case that all neighbors are cursed for this tabu implimentation
         i++;
-    tabuMemory[i].second = baseTabuDuration + generateRandInt(-3,3); //FIX LATER ERRTHERTHERHRHKERTJKHJERTILHJERIHJIERJHOEJHERTJOH
+    tabuMemory[i].second = baseTabuDuration + generateRandInt(-3,3); 
     return vector<bool>();
 
 }
@@ -580,7 +580,6 @@ if(warmSol.size() > 0) // sort of pointless error catching but just in case
 
 int main()
 {
-   
     ofstream excel("MDMKP_tabu.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
    
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
