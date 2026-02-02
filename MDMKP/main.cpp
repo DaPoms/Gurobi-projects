@@ -199,7 +199,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         GRBModel model(env);
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-        model.set(GRB_DoubleParam_TimeLimit, 1); //600 by default
+        model.set(GRB_DoubleParam_TimeLimit, 1200); //600 by default
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -214,11 +214,8 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             GRBLinExpr capacityExpr;
            
             for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
-            {
-                    //capacityExpr += case1.problemsByCase[0][e].capacityVal[cCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+                capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
                 
-            }
             capacityConstr.push_back(capacityExpr);
         }
         for(int i{0}; i < capacityConstr.size(); i++)

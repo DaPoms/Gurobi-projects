@@ -507,6 +507,13 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
     int blockNum{1};
     for(auto caseNum : caseNums)
     {
+        /*
+        if(blockNum < 14) //// use this code to start at a point other than block 1
+        {
+            blockNum++;
+            continue;
+        } 
+        */
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
@@ -619,25 +626,26 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
 
-    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+/*     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, caseSet, i);
-    }
+    } */
 
   
-/*     vector<problemSet> case3Set; // case 3 
+/*  
+    vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case3Set, 2); //you pass functions just by name
-     */
+*/
 
-/*     
+    
     //case 6
     vector<problemSet> case6Set; // case 6
     formatCase(5, case6Set, problemSets);
-    runGurobiMDMKP(env, excel, case6Set, 5);
-    */
+    runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case6Set, 5);
+   
 
     
     return 0;
