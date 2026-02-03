@@ -435,6 +435,8 @@ vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
     long bestOffBy{INT_MAX};
     vector<bool> sol = initSol;
 
+
+    // TO DO: THIS DOESN'T NEED THE PAIR TYPE, YOU CAN JUST TREAT INDEX 0 AS 1ST AND SO ON...
     vector< pair< int, int> > tabuMemory(initSol.size(), pair<int, int>(0,0) ); // .first is the index of the neighbor and .second is the duration of this neighbor being deemed tabu. Duration  = 0 means not currently tabu
     for(int i{0}; i < initSol.size(); i++)
         tabuMemory[i].first = i;
