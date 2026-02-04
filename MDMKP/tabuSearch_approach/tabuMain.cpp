@@ -426,7 +426,7 @@ int generateRandInt(int start, int end)
     return numGen(engine);
 }
 
-vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
+vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem, int baseTabuDuration, int radius)
 {
     // double timeLimit = 600; // the double is in seconds, but includes decimal places (2.5 == 2 and a half seconds)
     auto startTime = chrono::steady_clock::now();
@@ -435,10 +435,10 @@ vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
     long bestOffBy{INT_MAX};
     vector<bool> sol = initSol;
 
-    vector< pair< int, int> > tabuMemory(initSol.size(), pair<int, int>(0,0) ); // .first is the index of the neighbor and .second is the duration of this neighbor being deemed tabu. Duration  = 0 means not currently tabu
+    vector<int> tabuMemory(initSol.size(), 0 ); // .first is the index of the neighbor and .second is the duration of this neighbor being deemed tabu. Duration  = 0 means not currently tabu
     for(int i{0}; i < initSol.size(); i++)
-        tabuMemory[i].first = i;
-    int baseTabuDuration{15}; //base duration of tabu tenure
+        tabuMemory[i] = i;
+    // int baseTabuDuration{3}; //base duration of tabu tenure
     long coreOffBy{INT_MAX};
     //for/while statement goes here (the bulk of the behavior)
     while(coreOffBy > 0) //solution is solved when offBy = 0 (meaning it is feasible)
@@ -446,8 +446,8 @@ vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
         // decreases tabu duration of all tabu neighbors by one
         for(int i{0}; i < tabuMemory.size(); i++)
         {
-            if(tabuMemory[i].second > 0) // decreases existing tabu neighbors duration of the tabu attribute by 1
-                --tabuMemory[i].second;
+            if(tabuMemory[i] > 0) // decreases existing tabu neighbors duration of the tabu attribute by 1
+                --tabuMemory[i];
         }
         vector< pair<int, long> > orderedOffByOfNeighbors; // first is the neighbor index and the second is the offBy value of that neighbor
 
@@ -469,9 +469,9 @@ vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem)
         // assigns the best neighbor compared to the root (if possible) or compared amongst neighbors as the root for the next neighborhood formation
         //index 0 will be the best neighbor out of the bunch, with the higher the index being worse candidates
         int i{0};
-        while(tabuMemory[orderedOffByOfNeighbors[i].first].second != 0 && orderedOffByOfNeighbors[i].second >= bestOffBy) // (we only skip a solution if its tabu AND worse (higher in value) than the current core solution, meaing even if the best answer is worse than the coreOffBy, we still choose it) while a tabu solution with a worse answer than the current core, move to next candidate. Because only a max of 6 neighbors can be cursed at a time, we do not need to account for the case that all neighbors are cursed for this tabu implimentation
+        while(tabuMemory[orderedOffByOfNeighbors[i].first] != 0 && orderedOffByOfNeighbors[i].second >= bestOffBy) // (we only skip a solution if its tabu AND worse (higher in value) than the current core solution, meaing even if the best answer is worse than the coreOffBy, we still choose it) while a tabu solution with a worse answer than the current core, move to next candidate. Because only a max of 6 neighbors can be cursed at a time, we do not need to account for the case that all neighbors are cursed for this tabu implimentation
             i++;
-        tabuMemory[orderedOffByOfNeighbors[i].first].second = baseTabuDuration + generateRandInt(-15,15); // recently traversed routes are marked as tabu, with a base value + a random int value (currently ranging from -3 to 3) being the amount of "turns" this route isnt allowed
+        tabuMemory[orderedOffByOfNeighbors[i].first] = baseTabuDuration + generateRandInt(-radius, radius); // recently traversed routes are marked as tabu, with a base value + a random int value (currently ranging from -3 to 3) being the amount of "turns" this route isnt allowed
         sol = neighborhood[orderedOffByOfNeighbors[i].first];
 
         if(orderedOffByOfNeighbors[i].second < bestOffBy) //decides if our move formed a new best solution (for determining aspiration critereon)
@@ -502,7 +502,7 @@ void outputVectorToCSVRow(ofstream& excel, vector<T>& passedVect, string optiona
 } */
 
 template<typename t> //template is a function template, so we instead can pass a warm start function so long as it returns a vector of bools as the answer
-void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vector<problemSet>& caseNums, int caseCounter)
+void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel, ofstream& excel2,  vector<problemSet>& caseNums, int caseCounter) // this is the tabu tenure comparison variant of runWarmGurobiMDMKP
 {
     int blockNum{1};
     for(auto caseNum : caseNums)
@@ -552,33 +552,44 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
             model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
 //////////////////// Warm start code ///////////////
 
-auto startTime = chrono::steady_clock::now();
-vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
-// for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
-vector<bool> warmSol = warmStartFunction(initSols[0], caseNum); // currently this is tabu search, uses the passed heuristic to get hopefully a feasible solution
-auto stopTime = chrono::steady_clock::now();
-chrono::duration<double> runTime = (stopTime - startTime);
+// auto startTime = chrono::steady_clock::now();
+    vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
+    auto startTime = chrono::steady_clock::now();
+    // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
+    vector<bool> warmSol = warmStartFunction(initSols[0], caseNum, 3 , 3); //enter radius and base in the last 2 terms to play around with tabu tenure settings
+    auto stopTime = chrono::steady_clock::now();
+    chrono::duration<double> runTime = (stopTime - startTime);
 
-double gurobiAdditionalTime{0};
-if(runTime.count() < timeLimit)
-    gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing 
+    auto startTime2 = chrono::steady_clock::now();
+    // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
+    vector<bool> warmSol2 = warmStartFunction(initSols[0], caseNum, 15, 15); // currently this is tabu search, uses the passed heuristic to get hopefully a feasible solution
+    auto stopTime2 = chrono::steady_clock::now();
+    chrono::duration<double> runTime2 = (stopTime - startTime);
 
 
-//feeds solution as a warm start for gurobi
-if(warmSol.size() > 0) // sort of pointless error catching but just in case
-{
-    for(int i{0}; i < warmSol.size(); i++)
-        x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
-} 
+ /*    double gurobiAdditionalTime{0};
+    if(runTime.count() < timeLimit)
+        gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing  */
+
+
+    //feeds solution as a warm start for gurobi
+    if(warmSol.size() > 0) // sort of pointless error catching but just in case
+    {
+        for(int i{0}; i < warmSol.size(); i++)
+            x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
+    } 
 
 //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
-model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start
+    model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
+    //model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
+    model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
 /////////////////////////////////////////////////
         model.optimize();
 
-        long long profit{0};
+       
 
+///////////////////////////////////////////////////////////////
+        long long profit{0};
         //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         
          
@@ -598,18 +609,186 @@ model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatev
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
        
+
+        ///////////////TABU TENURE CANDIDATE 2 CODE///////////////////
+
+        model.reset(); // REMOVE later, THIS IS CODE FOR COMPARING TABU TENURE VALUES
+        if(warmSol2.size() > 0) // sort of pointless error catching but just in case
+        {
+            for(int i{0}; i < warmSol2.size(); i++)
+                x[i].set(GRB_DoubleAttr_Start, warmSol2[i]);
+        } 
+
+        model.optimize();
+        profit = 0; //reset profit
+        if(model.get(GRB_IntAttr_SolCount) > 0)
+        {
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += caseNum.problemsByCase[0][i].value; 
+            }        
+           
+
+            excel2 << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime2.count() << "," << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        }   
+        else
+            excel2 << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime2.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+        
+        ///////////////////////////////////////////////////////////////
+
         blockNum++; 
     }
 }
 
 
+/* 
+template<typename t> //template is a function template, so we instead can pass a warm start function so long as it returns a vector of bools as the answer
+void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vector<problemSet>& caseNums, int caseCounter)
+{
+    int blockNum{1};
+    for(auto caseNum : caseNums)
+    {
+        // was a comment block
+        if(blockNum < 14) //// use this code to start at a point other than block 1
+        {
+            blockNum++;
+            continue;
+        } 
+        // was a comment block
+        vector<GRBLinExpr> demandConstr;
+        vector<GRBLinExpr> capacityConstr;
+        GRBLinExpr objective;
+        GRBModel model(env);
+        
+        vector<GRBVar> x; //variable for if we include / not include item in knapsack
+//////////////////// objective value definition ///////////////
+        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
+            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
+       
+        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+                objective += caseNum.problemsByCase[0][i].value * x[i]; 
+        model.setObjective(objective, GRB_MAXIMIZE);
+//////////////////// capacity constraint ///////////////
+        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++) 
+        {
+            GRBLinExpr capacityExpr;
+            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+                capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+
+            capacityConstr.push_back(capacityExpr);
+        }
+        for(int i{0}; i < capacityConstr.size(); i++)
+            model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );
+       
+//////////////////// demand constraint ///////////////
+        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  
+        {
+            GRBLinExpr demandExpr;
+            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+                demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+            
+            demandConstr.push_back(demandExpr);
+        }
+        for(int i{0}; i < demandConstr.size(); i++)
+            model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
+//////////////////// Warm start code ///////////////
+
+    auto startTime = chrono::steady_clock::now();    
+    vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
+    // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
+    vector<bool> warmSol = warmStartFunction(initSols[0], caseNum, 3 , 3); // currently this is tabu search, uses the passed heuristic to get hopefully a feasible solution
+    auto stopTime = chrono::steady_clock::now();
+    chrono::duration<double> runTime = (stopTime - startTime);
+
+    // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
+
+    double gurobiAdditionalTime{0};
+    if(runTime.count() < timeLimit)
+        gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing 
+
+
+    //feeds solution as a warm start for gurobi
+    if(warmSol.size() > 0) // sort of pointless error catching but just in case
+    {
+        for(int i{0}; i < warmSol.size(); i++)
+            x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
+    } 
+
+//////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
+    model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
+    model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
+    
+/////////////////////////////////////////////////
+        model.optimize();
+
+///////////////TABU TENURE CANDIDATE 2 CODE///////////////////
+        model.reset(); // REMOVE later, THIS IS CODE FOR COMPARING TABU TENURE VALUES
+        if(warmSol2.size() > 0) // sort of pointless error catching but just in case
+        {
+            for(int i{0}; i < warmSol2.size(); i++)
+                x[i].set(GRB_DoubleAttr_Start, warmSol2[i]);
+        } 
+       
+
+///////////////////////////////////////////////////////////////
+        long long profit{0};
+        //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+        
+         
+        if(model.get(GRB_IntAttr_SolCount) > 0)
+        {
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += caseNum.problemsByCase[0][i].value; 
+            }        
+           
+
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        }   
+        else
+        {
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+        }
+       
+
+        ///////////////TABU TENURE CANDIDATE 2 CODE///////////////////
+        model.optimize();
+        if(model.get(GRB_IntAttr_SolCount) > 0)
+        {
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += caseNum.problemsByCase[0][i].value; 
+            }        
+           
+
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        }   
+        else
+        {
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+        }
+        ///////////////////////////////////////////////////////////////
+
+
+
+
+
+        blockNum++; 
+    }
+}
+*/
+
 
 
 int main()
 {
-    ofstream excel("MDMKP_600sTabu600sGurobi.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-   
+    ofstream excel("MDMKP_600sTabu3base3radiusTenure.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel2("MDMKP_600sTabu15base15radiusTenure.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n'; // just by practice I separate the ",". To me it is more readable
+    excel2 << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n';
     //excel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -626,12 +805,12 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
 
-/*     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
-        runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, caseSet, i);
-    } */
+        runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, excel2, caseSet, i);
+    }
 
   
 /*  
@@ -642,9 +821,9 @@ int main()
 
     
     //case 6
-    vector<problemSet> case6Set; // case 6
+/*     vector<problemSet> case6Set; // case 6
     formatCase(5, case6Set, problemSets);
-    runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case6Set, 5);
+    runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case6Set, 5); */
    
 
     
