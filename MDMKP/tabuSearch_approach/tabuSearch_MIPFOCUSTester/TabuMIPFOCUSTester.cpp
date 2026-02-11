@@ -318,7 +318,7 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
     vector< vector<bool> > answer(1); // whatever we deem to be best will be stored here (will try closest to feasible, capacity only, and demand only approaches)
     long bestTotalOffBy{INT_MAX}; // This will hold the absolute value sum of how much the best solution is off by for it to become feasible. The best solution is one closest to feasibility
     long candidateOffBy; // holds the offBy value of contenders for the bestTotalOffBy
-    const int amountOfPermutations = 100; // just a variable to allow fast permutation count changing
+    const int amountOfPermutations = 10; // just a variable to allow fast permutation count changing
     int candidateCount = problem.problemsByCase[0].size();
     vector<int> window(candidateCount); // I ultimately couldn't use the std::array library as for that library, arrays must have their size determined at compile time. For some reason my c-style arrays worked when they shouldn't, so I'm avoiding that practice
     for(int i{0}; i < candidateCount; i++) // the original window that will be scrambled from
@@ -352,11 +352,10 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
             /* if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution
                 return mapSolutionToVector(knapsackSolution); */
             if(isBestSol(problem.knapsackDemandRequirementVals, currDemandVals, bestTotalOffBy, candidateOffBy, true)) // note that currBestTotalOffBy just stores the answer of OffBy for the current solution, showing how off it is from being feasible
-            {    
-                bestTotalOffBy = candidateOffBy; 
+            {
+                bestTotalOffBy = candidateOffBy;     
                 answer[0] = mapSolutionToVector(knapsackSolution); // for this implimentation, answer has only the best solution. I built it this way to support further multi answer solutions, so even though it is currently very inefficient for choosing only the best answer, this works and allows more flexibility
             }
-
             //prepares solution for >= approach, in which on a knapsack holding every item you keep on removing from the knapsack so long as the knapsack retains >= satisfaction
             fill(currDemandVals.begin(), currDemandVals.end(), 0); //from algorithm library (could also be done with just a simple for loop). Resets the current demand vals for the next phase
             fill(currCapacityVals.begin(), currCapacityVals.end(), 0);
@@ -387,6 +386,7 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
                 bestTotalOffBy = candidateOffBy; 
                 answer[0] = mapSolutionToVector(knapsackSolution); 
             }
+
         }
     // }
     return answer; 
@@ -490,6 +490,147 @@ vector<bool> tabuSearchMDMKP(vector<bool>& initSol, problemSet& problem, int bas
 }
 
 
+template<typename t> //template is a function template, so we instead can pass a warm start function so long as it returns a vector of bools as the answer
+void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel, ofstream& excel2,  vector<problemSet>& caseNums, int caseCounter)
+{
+    int blockNum{1};
+    for(auto caseNum : caseNums)
+    {
+        // // was a comment block
+        // if(blockNum < 14) //// use this code to start at a point other than block 1
+        // {
+        //     blockNum++;
+        //     continue;
+        // } 
+        // was a comment block
+        vector<GRBLinExpr> demandConstr;
+        vector<GRBLinExpr> capacityConstr;
+        GRBLinExpr objective;
+        GRBModel model(env);
+        
+        vector<GRBVar> x; //variable for if we include / not include item in knapsack
+//////////////////// objective value definition ///////////////
+        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
+            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
+       
+        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+                objective += caseNum.problemsByCase[0][i].value * x[i]; 
+        model.setObjective(objective, GRB_MAXIMIZE);
+//////////////////// capacity constraint ///////////////
+        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++) 
+        {
+            GRBLinExpr capacityExpr;
+            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+                capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+
+            capacityConstr.push_back(capacityExpr);
+        }
+        for(int i{0}; i < capacityConstr.size(); i++)
+            model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );
+       
+//////////////////// demand constraint ///////////////
+        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  
+        {
+            GRBLinExpr demandExpr;
+            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+                demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+            demandConstr.push_back(demandExpr);
+        }
+        for(int i{0}; i < demandConstr.size(); i++)
+            model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
+//////////////////// Warm start code ///////////////
+
+        auto startTime = chrono::steady_clock::now();    
+        vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
+        // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
+        vector<bool> warmSol = warmStartFunction(initSols[0], caseNum, 3 , 3); // currently this is tabu search, uses the passed heuristic to get hopefully a feasible solution
+        auto stopTime = chrono::steady_clock::now();
+        chrono::duration<double> runTime = (stopTime - startTime);
+
+        // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
+
+        double gurobiAdditionalTime{0};
+        if(runTime.count() < timeLimit)
+            gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing 
+
+
+        //feeds solution as a warm start for gurobi
+        if(warmSol.size() > 0) // sort of pointless error catching but just in case
+        {
+            for(int i{0}; i < warmSol.size(); i++)
+                x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
+        } 
+
+    //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
+        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
+        model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
+        // MIPFOCUS is 0 by default (so no need to manually set it. Just note that the first .optimize() is for the MIPFOCUS = 0)
+    /////////////////////////////////////////////////
+        model.optimize();
+
+    long long profit{0};
+    // Data output for candidate 1 (MIPFOCUS = 0)
+        if(model.get(GRB_IntAttr_SolCount) > 0)
+        {
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += caseNum.problemsByCase[0][i].value; 
+            }        
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        }   
+        else
+        {
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+        }
+    ///////////////MIPFOCUS CANDIDATE 2 CODE///////////////////
+            model.reset(); // REMOVE later, THIS IS CODE FOR COMPARING TABU TENURE VALUES
+            model.set(GRB_IntParam_MIPFocus, 3); // sets mipfocus to 3! What we want to test
+            if(warmSol.size() > 0) // sort of pointless error catching but just in case
+            {
+                for(int i{0}; i < warmSol.size(); i++)
+                    x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
+            } 
+        
+
+///////////////////////////////////////////////////////////////
+       
+        //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+        
+         
+    
+        //////////////////////Candidate 2 Gurobi run//////////////////////
+        model.optimize();
+        /////////////// CANDIDATE 2 data output (MIPFOCUS = 3)///////////////////
+         profit = 0; //reset profit from the 1st candidate
+        if(model.get(GRB_IntAttr_SolCount) > 0)
+        {
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += caseNum.problemsByCase[0][i].value; 
+            }        
+           
+
+            excel2 << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        }   
+        else
+        {
+            excel2 << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+        }
+        ///////////////////////////////////////////////////////////////
+
+        blockNum++; 
+    }
+}
+
+
+
+
+
+
+
+
 /* template<typename T> // row will make a newline at the end
 void outputVectorToCSVRow(ofstream& excel, vector<T>& passedVect, string optionalRowHeader = "")
 {
@@ -501,19 +642,20 @@ void outputVectorToCSVRow(ofstream& excel, vector<T>& passedVect, string optiona
     excel << '\n';
 } */
 
+/* 
 template<typename t> //template is a function template, so we instead can pass a warm start function so long as it returns a vector of bools as the answer
 void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vector<problemSet>& caseNums, int caseCounter) // this is the tabu tenure comparison variant of runWarmGurobiMDMKP
 {
     int blockNum{1};
     for(auto caseNum : caseNums)
     {
-        /*
+        
         if(blockNum < 14) //// use this code to start at a point other than block 1
         {
             blockNum++;
             continue;
         } 
-        */
+        
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
@@ -555,14 +697,18 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 // auto startTime = chrono::steady_clock::now();
     vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
     auto startTime = chrono::steady_clock::now();
-    // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
-    vector<bool> warmSol = warmStartFunction(initSols[0], caseNum, 3, 3); //enter radius and base in the last 2 terms to play around with tabu tenure settings
+    for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
+    {
+        vector<bool> warmSol = warmStartFunction(initSols[i], caseNum, 3 , 3); //enter radius and base in the last 2 terms to play around with tabu tenure settings
+    }
+
+
     auto stopTime = chrono::steady_clock::now();
     chrono::duration<double> runTime = (stopTime - startTime);
 
     double gurobiAdditionalTime{0};
     if(runTime.count() < timeLimit)
-        gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing 
+        gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing  
 
 
     //feeds solution as a warm start for gurobi
@@ -574,9 +720,8 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 
 //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
     model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-    model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
-    //model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
-    //model.set(GRB_IntParam_MIPFocus, 3);
+    //model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
+    model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
 /////////////////////////////////////////////////
         model.optimize();
 ///////////////////////////////////////////////////////////////
@@ -603,153 +748,12 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
         blockNum++; 
     }
 }
-
-
-/* 
-template<typename t> //template is a function template, so we instead can pass a warm start function so long as it returns a vector of bools as the answer
-void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vector<problemSet>& caseNums, int caseCounter)
-{
-    int blockNum{1};
-    for(auto caseNum : caseNums)
-    {
-        // was a comment block
-        if(blockNum < 14) //// use this code to start at a point other than block 1
-        {
-            blockNum++;
-            continue;
-        } 
-        // was a comment block
-        vector<GRBLinExpr> demandConstr;
-        vector<GRBLinExpr> capacityConstr;
-        GRBLinExpr objective;
-        GRBModel model(env);
-        
-        vector<GRBVar> x; //variable for if we include / not include item in knapsack
-//////////////////// objective value definition ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
-            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
-       
-        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-                objective += caseNum.problemsByCase[0][i].value * x[i]; 
-        model.setObjective(objective, GRB_MAXIMIZE);
-//////////////////// capacity constraint ///////////////
-        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++) 
-        {
-            GRBLinExpr capacityExpr;
-            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
-                capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-
-            capacityConstr.push_back(capacityExpr);
-        }
-        for(int i{0}; i < capacityConstr.size(); i++)
-            model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );
-       
-//////////////////// demand constraint ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  
-        {
-            GRBLinExpr demandExpr;
-            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
-                demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-            
-            demandConstr.push_back(demandExpr);
-        }
-        for(int i{0}; i < demandConstr.size(); i++)
-            model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
-//////////////////// Warm start code ///////////////
-
-    auto startTime = chrono::steady_clock::now();    
-    vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
-    // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
-    vector<bool> warmSol = warmStartFunction(initSols[0], caseNum, 3 , 3); // currently this is tabu search, uses the passed heuristic to get hopefully a feasible solution
-    auto stopTime = chrono::steady_clock::now();
-    chrono::duration<double> runTime = (stopTime - startTime);
-
-    // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
-
-    double gurobiAdditionalTime{0};
-    if(runTime.count() < timeLimit)
-        gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing 
-
-
-    //feeds solution as a warm start for gurobi
-    if(warmSol.size() > 0) // sort of pointless error catching but just in case
-    {
-        for(int i{0}; i < warmSol.size(); i++)
-            x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
-    } 
-
-//////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
-    model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-    model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
-    
-/////////////////////////////////////////////////
-        model.optimize();
-
-///////////////TABU TENURE CANDIDATE 2 CODE///////////////////
-        model.reset(); // REMOVE later, THIS IS CODE FOR COMPARING TABU TENURE VALUES
-        if(warmSol2.size() > 0) // sort of pointless error catching but just in case
-        {
-            for(int i{0}; i < warmSol2.size(); i++)
-                x[i].set(GRB_DoubleAttr_Start, warmSol2[i]);
-        } 
-       
-
-///////////////////////////////////////////////////////////////
-        long long profit{0};
-        //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
-        
-         
-        if(model.get(GRB_IntAttr_SolCount) > 0)
-        {
-            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-            {
-                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-                    profit += caseNum.problemsByCase[0][i].value; 
-            }        
-           
-
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-        }   
-        else
-        {
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
-        }
-       
-
-        ///////////////TABU TENURE CANDIDATE 2 CODE///////////////////
-        model.optimize();
-        if(model.get(GRB_IntAttr_SolCount) > 0)
-        {
-            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-            {
-                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-                    profit += caseNum.problemsByCase[0][i].value; 
-            }        
-           
-
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-        }   
-        else
-        {
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
-        }
-        ///////////////////////////////////////////////////////////////
-
-
-
-
-
-        blockNum++; 
-    }
-}
-*/
-
-
+ */
 
 int main()
 {
-    ofstream excel("MDMKP_1200sDynamicTabuGurobiMIPFOCUS3_3+-3TT.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-   
+    ofstream excel("MDMKP_1200sTabu+Gurobi_3+-3TT_MIPFOCUS0.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+   ofstream excel2("MDMKP_1200sTabu+Gurobi_3+-3TT_MIPFOCUS3.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n'; // just by practice I separate the ",". To me it is more readable
     //excel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
 
@@ -771,7 +775,7 @@ int main()
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
-        runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, caseSet, i);
+        runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, excel2, caseSet, i);
     }
 
   
