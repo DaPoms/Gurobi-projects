@@ -556,13 +556,13 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
     vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
     auto startTime = chrono::steady_clock::now();
     // for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
-    vector<bool> warmSol = warmStartFunction(initSols[0], caseNum, 3 , 3); //enter radius and base in the last 2 terms to play around with tabu tenure settings
+    vector<bool> warmSol = warmStartFunction(initSols[0], caseNum, 3, 3); //enter radius and base in the last 2 terms to play around with tabu tenure settings
     auto stopTime = chrono::steady_clock::now();
     chrono::duration<double> runTime = (stopTime - startTime);
 
- /*    double gurobiAdditionalTime{0};
+    double gurobiAdditionalTime{0};
     if(runTime.count() < timeLimit)
-        gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing  */
+        gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing 
 
 
     //feeds solution as a warm start for gurobi
@@ -574,8 +574,8 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 
 //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
     model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-    //model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
-    model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
+    model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
+    //model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
 /////////////////////////////////////////////////
         model.optimize();
 ///////////////////////////////////////////////////////////////
@@ -747,7 +747,7 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 
 int main()
 {
-    ofstream excel("MDMKP_600sShotgunApproach.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKP_1200sDynamicTabuGurobi3+-3TT.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
    
     excel << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n'; // just by practice I separate the ",". To me it is more readable
     //excel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
