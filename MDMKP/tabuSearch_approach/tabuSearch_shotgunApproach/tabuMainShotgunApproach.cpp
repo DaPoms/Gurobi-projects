@@ -17,7 +17,7 @@ using namespace std;
 
 //Note: test picking best sol, capacity only, and demand only for the tabu search input
 // This is my first time adding a global, but it helps prevent parity issues with the duration of the Warmstart
-double timeLimit{100};
+double timeLimit{200};
 ///////////////////// start of file reading code /////////////////////
 
 class MDMKRawProblem // each MDMKRawProblem is actually a set of 6 problems in 1 entity, but processing must be done for that to formm thus the "raw" name
@@ -635,20 +635,20 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
 
- /*    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, caseSet, i);
-    } */
+    }
 
   
- 
+ /* 
     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case3Set, 2); //you pass functions just by name
 
-
+ */
     
     //case 6
 /*     vector<problemSet> case6Set; // case 6
