@@ -231,7 +231,7 @@ bool isFeasible(problemSet& problem, vector<long>& currCapacityVals, vector<long
         if(currCapacityVals[c] > problem.knapsackCapacityVals[c]) return false;
 
     for(int d{0}; d < currDemandVals.size(); d++) // curr must be >= the problem's cap to be feasible
-        if(currDemandVals[d] < problem.knapsackCapacityVals[d]) return false;
+        if(currDemandVals[d] < problem.knapsackDemandRequirementVals[d]) return false;
 
     return true;
 }
@@ -349,8 +349,6 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
                         currDemandVals[d] += problem.problemsByCase[0][i].demandVal[d];
                 }
             }
-            /* if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution
-                return mapSolutionToVector(knapsackSolution); */
            /*  if(isBestSol(problem.knapsackDemandRequirementVals, currDemandVals, bestTotalOffBy, candidateOffBy, true)) // note that currBestTotalOffBy just stores the answer of OffBy for the current solution, showing how off it is from being feasible
             {    
 
@@ -382,8 +380,6 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
                         currCapacityVals[c] -= problem.problemsByCase[0][i].capacityVal[c];
                 }
             }
-            /* if(isFeasible(problem, currCapacityVals, currDemandVals)) //checks if problem is the solution 
-                return mapSolutionToVector(knapsackSolution); */
             /* if(isBestSol(problem.knapsackCapacityVals, currCapacityVals, bestTotalOffBy, candidateOffBy, false)) // we pass capacity vals as the opposite of what we solve for is considered in the best solution, as we already solved for the demand constraint to be met
             {    
                 bestTotalOffBy = candidateOffBy; 
@@ -512,13 +508,13 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
     int blockNum{1};
     for(auto caseNum : caseNums)
     {
-        /*
-        if(blockNum < 14) //// use this code to start at a point other than block 1
+        
+/*         if(blockNum < 5) //// use this code to start at a point other than block 1
         {
             blockNum++;
             continue;
-        } 
-        */
+        }  */
+        
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
@@ -560,9 +556,15 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 // auto startTime = chrono::steady_clock::now();
     vector< vector<bool> > initSols  = arbitraryPermutationSolver(caseNum); //initSol holds all the solutions that are to be considered one at a time by the tabu search algorithm (currently just one, the best solution)
     auto startTime = chrono::steady_clock::now();
+    vector<bool> warmSol;
     for(int i{0}; i < initSols.size(); i++) // we want to run this for the amount of init sols there are, then pick the best solution WIP:::::::::::::::::::::::::::::::::::
     {
-        vector<bool> warmSol = warmStartFunction(initSols[i], caseNum, 3 , 3); //enter radius and base in the last 2 terms to play around with tabu tenure settings
+        warmSol = warmStartFunction(initSols[i], caseNum, 3 , 3); //enter radius and base in the last 2 terms to play around with tabu tenure settings
+        vector<long> capacityVal;
+        vector<long> demandVal;
+        sumConstraints(caseNum, warmSol, capacityVal, demandVal);
+        if(isFeasible(caseNum, capacityVal, demandVal)) 
+            break; // stops shotgun approach once feasible solution is found
     }
 
 
@@ -633,19 +635,19 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
 
-    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+ /*    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, caseSet, i);
-    }
+    } */
 
   
-/*  
+ 
     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case3Set, 2); //you pass functions just by name
-*/
+
 
     
     //case 6

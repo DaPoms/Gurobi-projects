@@ -231,7 +231,7 @@ bool isFeasible(problemSet& problem, vector<long>& currCapacityVals, vector<long
         if(currCapacityVals[c] > problem.knapsackCapacityVals[c]) return false;
 
     for(int d{0}; d < currDemandVals.size(); d++) // curr must be >= the problem's cap to be feasible
-        if(currDemandVals[d] < problem.knapsackCapacityVals[d]) return false;
+        if(currDemandVals[d] < problem.knapsackDemandRequirementVals[d]) return false;
 
     return true;
 }
