@@ -17,7 +17,8 @@ using namespace std;
 
 //Note: test picking best sol, capacity only, and demand only for the tabu search input
 // This is my first time adding a global, but it helps prevent parity issues with the duration of the Warmstart
-double timeLimit{200};
+double timeLimit{900};
+int TabuIterationsPerProblem{2}; // note that this value is effectively multiplied by 2, so 10 = 20.
 ///////////////////// start of file reading code /////////////////////
 
 class MDMKRawProblem // each MDMKRawProblem is actually a set of 6 problems in 1 entity, but processing must be done for that to formm thus the "raw" name
@@ -318,7 +319,7 @@ vector< vector<bool> > arbitraryPermutationSolver(problemSet& problem) //main ru
     vector< vector<bool> > answer; // whatever we deem to be best will be stored here (will try closest to feasible, capacity only, and demand only approaches)
     long bestTotalOffBy{INT_MAX}; // This will hold the absolute value sum of how much the best solution is off by for it to become feasible. The best solution is one closest to feasibility
     long candidateOffBy; // holds the offBy value of contenders for the bestTotalOffBy
-    const int amountOfPermutations = 10; // just a variable to allow fast permutation count changing
+    const int amountOfPermutations = TabuIterationsPerProblem; // just a variable to allow fast permutation count changing (inserted the global here so I don't have to change names)
     int candidateCount = problem.problemsByCase[0].size();
     vector<int> window(candidateCount); // I ultimately couldn't use the std::array library as for that library, arrays must have their size determined at compile time. For some reason my c-style arrays worked when they shouldn't, so I'm avoiding that practice
     for(int i{0}; i < candidateCount; i++) // the original window that will be scrambled from
@@ -576,6 +577,11 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
         gurobiAdditionalTime = timeLimit - runTime.count(); // gives the additional time to gurobi for processing  */
 
 
+    /////////////////exclusive code for guaranteeing a fixed run time (if tabu takes longer, gurobi runtime gets penalized)
+    double gurobiTime = ( (timeLimit * (TabuIterationsPerProblem * 2) ) - runTime.count() ); //20 is the hardcoded value for the number of iterations we run the tabu search for (not smart to hard code it like this but its fast to impliment)
+    if(gurobiTime <= 0) // our minimum time is 1, to guarantee the ability to at least record our answer
+        gurobiTime = 1;
+
     //feeds solution as a warm start for gurobi
     if(warmSol.size() > 0) // sort of pointless error catching but just in case
     {
@@ -586,7 +592,8 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
     model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
     //model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
-    model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
+    model.set(GRB_DoubleParam_TimeLimit, gurobiTime); // opposite version of the above timeLimit mechanic
+    // model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
 /////////////////////////////////////////////////
         model.optimize();
 ///////////////////////////////////////////////////////////////
@@ -635,20 +642,20 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
 
-    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+    /* for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, caseSet, i);
-    }
+    } */
 
   
- /* 
+ 
     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case3Set, 2); //you pass functions just by name
 
- */
+
     
     //case 6
 /*     vector<problemSet> case6Set; // case 6

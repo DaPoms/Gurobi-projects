@@ -242,7 +242,7 @@ bool isFeasible(problemSet& caseProblem, vector<double>& xVals) //checks if solu
     for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++)
             if(currKnapsackCapacityVals[c] > caseProblem.knapsackCapacityVals[c]) return false;
     for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++)
-        if(currKnapsackCapacityVals[d] < caseProblem.knapsackCapacityVals[d]) return false;
+        if(currKnapsackDemandVals[d] < caseProblem.knapsackDemandRequirementVals[d]) return false;
     return true;
 }
 
@@ -333,13 +333,13 @@ vector<double> gurobiOnCore(problemSet& coreProblem, GRBEnv& env, ofstream& exce
         // model.set(GRB_IntParam_OutputFlag, 0);
         model.optimize();
 
-        //model.write("testModel.lp");
+         //model.write("testModel.lp");
         if(model.get(GRB_IntAttr_SolCount) == 0)
         {
-            excel << "failed\n";
+            // excel << "failed\n";
             return vector<double>(); //case of a failed solution
         }
-        excel << "passed\n";
+        excel << "passed\n"; 
         return GRBToDoubleDecisionValues(x); //returns core solution if found
 
 }
@@ -356,11 +356,11 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
     for(problemSet caseProblem : caseProblems)
     {
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
-        if( (blockNum == 7 && caseCounter == 2 ) || (blockNum == 8 && caseCounter == 2 ) || (blockNum == 10 && caseCounter == 2 ) || (blockNum == 14 && caseCounter == 2 ) || (blockNum == 8 && caseCounter == 5 ) || (blockNum == 14 && caseCounter == 5 ))
+        /* if( (blockNum == 7 && caseCounter == 2 ) || (blockNum == 8 && caseCounter == 2 ) || (blockNum == 10 && caseCounter == 2 ) || (blockNum == 14 && caseCounter == 2 ) || (blockNum == 8 && caseCounter == 5 ) || (blockNum == 14 && caseCounter == 5 ))
         {    
             blockNum++;
             continue;
-        }
+        } */
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
