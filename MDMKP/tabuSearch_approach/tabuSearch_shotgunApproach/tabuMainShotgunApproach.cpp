@@ -623,7 +623,7 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 
 int main()
 {
-    ofstream excel("MDMKP_600sShotgunApproach.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct8_900sShotgunApproach.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
    
     excel << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n'; // just by practice I separate the ",". To me it is more readable
     //excel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
@@ -636,7 +636,8 @@ int main()
 
     //reading 
     vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("datac7.txt", MDMKRawProblems);
+    //readMDMKP("datac7.txt", MDMKRawProblems);
+    readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
     vector<problemSet> problemSets;
     RawProblemsToCases(MDMKRawProblems, problemSets);
