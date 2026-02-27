@@ -573,11 +573,25 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
     } 
 
 //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
-    model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-    model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
+    //model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
+    //model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
+    model.set(GRB_DoubleParam_TimeLimit, 600); 
     //model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
     //model.set(GRB_IntParam_MIPFocus, 3);
 /////////////////////////////////////////////////
+
+///////////////////////////////////TEST CODE, DELETE!!!
+model.set(GRB_DoubleParam_TuneTimeLimit,20400);
+        model.tune();
+        int resultcount = model.get(GRB_IntAttr_TuneResultCount);
+        if(resultcount > 0)
+        {
+            model.getTuneResult(resultcount-1);
+            model.write("tune.prm");
+        }
+
+        exit(EXIT_SUCCESS);
+/////////////////////////////////
         model.optimize();
 ///////////////////////////////////////////////////////////////
         long long profit{0};
@@ -766,7 +780,7 @@ int main()
     vector<problemSet> problemSets;
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
-
+/* 
     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
@@ -774,12 +788,12 @@ int main()
         runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, caseSet, i);
     }
 
-  
-/*  
+   */
+ 
     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case3Set, 2); //you pass functions just by name
-*/
+
 
     
     //case 6

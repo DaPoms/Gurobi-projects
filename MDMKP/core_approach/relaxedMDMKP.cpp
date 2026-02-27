@@ -356,11 +356,11 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
     for(problemSet caseProblem : caseProblems)
     {
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
-        /* if( (blockNum == 7 && caseCounter == 2 ) || (blockNum == 8 && caseCounter == 2 ) || (blockNum == 10 && caseCounter == 2 ) || (blockNum == 14 && caseCounter == 2 ) || (blockNum == 8 && caseCounter == 5 ) || (blockNum == 14 && caseCounter == 5 ))
+        if(blockNum != 6 )
         {    
             blockNum++;
             continue;
-        } */
+        }
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
@@ -412,14 +412,28 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
             {
                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
                     profit += caseProblem.problemsByCase[0][i].value;
-            }        
+            }    
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; //Note this relaxation makes this problem no longer an MIP, meaning there IS NO MIPGAP
+               
+            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+            {
+                excel << i << ',';
+            }  
+            excel << endl;
+            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+            {
+                excel << x[i].get(GRB_DoubleAttr_X) << ',';
+            }   
+            excel << endl;
         }
         else // case of infeasible solution (as the x[i].get() would throw an error if our model is infeasible)
         {
             profit = -1;
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
+
+        if(blockNum == 6 ) //DELETE, this is code for solution extraction
+            exit(EXIT_SUCCESS);
         blockNum++;
 
         // CORE PROBLEM CODE: //
@@ -478,7 +492,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPCore.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7LPRelaxWrittenSols.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -494,19 +508,19 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets); // this just stores problems in a more understandable state that allows direct usage in solving algorithms
                                                       // rawProblem's problemSet objects contains a .problemByCase of 6 elements, one for each case 
 
-    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+/*     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets); // stores the ith case from every block in caseSet (15 blocks total), 
                                              // but note that i is one behind what you expect. EX: case 1 is i = 0, case 2 is i = 1, and so on.
         runGurobiMDMKP(env, excel, caseSet, i);
     }
-
+ */
 
 // In this program my goal is to test the LP relaxation approach on the hardest cases, case 3 and 6, and to see if its a valid or invalid approach for a sample size of n = 100
-/*     vector<problemSet> case3Set; // case 3 
+    vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes, an input of 2 means case 3.
-    runGurobiMDMKP(env, excel, case3Set, 2); */
+    runGurobiMDMKP(env, excel, case3Set, 2);
 
 /* 
     //case 6

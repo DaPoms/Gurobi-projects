@@ -193,13 +193,28 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
     int blockNum{1};
     for(auto caseNum : caseNums)
     {
+
+
+
+
+        //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
+        if(blockNum != 6 )
+        {    
+            blockNum++;
+            continue;
+        }
+
+
+
+
+
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
         GRBModel model(env);
         
-        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-        model.set(GRB_DoubleParam_TimeLimit, 1200); //600 by default
+        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
+        model.set(GRB_DoubleParam_TimeLimit, 3600); 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -237,11 +252,28 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
       
         
+
+
+      /*   // ///////////////////// EXPERIMENT DELETE ERIGGIRJREGJGJIEIJ   preSparsify 1
+        model.set(GRB_DoubleParam_TuneTimeLimit,600);
+        model.tune();
+        int resultcount = model.get(GRB_IntAttr_TuneResultCount);
+        if(resultcount > 0)
+        {
+            model.getTuneResult(resultcount-1);
+            model.write("tune.prm");
+        }
+        
+        exit(EXIT_SUCCESS);
+        //////////////////////////// */
+        
+
+        model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         model.optimize();
 
         long long profit{0};
 
-        //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+        
         
         
         if(model.get(GRB_IntAttr_SolCount) > 0)
@@ -252,6 +284,16 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
                     profit += caseNum.problemsByCase[0][i].value;
             }        
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+                excel << i << ',';
+            }  
+            excel << endl;
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            {
+                excel << x[i].get(GRB_DoubleAttr_X) << ',';
+            }   
+            excel << endl;
         }
         else // case of infeasible solution 
         {
@@ -259,6 +301,21 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
         blockNum++;
+
+
+
+
+
+
+
+        if (blockNum == 6)
+            exit(EXIT_SUCCESS);
+
+
+
+
+
+
     }
 }
 
@@ -278,7 +335,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKP.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct8_3600s(forLPCompare).csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -289,17 +346,19 @@ int main()
 
     //reading 
    vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("datac7.txt", MDMKRawProblems);
+    readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
     vector<problemSet> problemSets;
     RawProblemsToCases(MDMKRawProblems, problemSets);
 
-    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+/*     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runGurobiMDMKP(env, excel, caseSet, i);
-    }
-
+    } */
+        vector<problemSet> caseSet;
+    formatCase(2, caseSet, problemSets);
+    runGurobiMDMKP(env, excel, caseSet, 2);
     return 0;
 }
