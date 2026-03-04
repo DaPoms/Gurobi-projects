@@ -362,11 +362,11 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         for(long& demandRequirement : caseProblem.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
             demandRequirement *= 0.9;
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
-        if(blockNum != 2)
+        if(blockNum != 6)
         {    
             blockNum++;
             continue;
-        } */
+        } 
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
@@ -412,7 +412,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         
         //used to compare LP relaxed (linear relaxed problem) to the BIP (binary int problem) variant that is solved by the core problem method
-/*         if(model.get(GRB_IntAttr_SolCount) > 0)
+        if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
             {
@@ -436,9 +436,9 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         {
             profit = -1;
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
-        } */
+        }
 
-        if(blockNum == 2 ) //DELETE, this is code for solution extraction
+        if(blockNum == 6 ) //DELETE, this is code for solution extraction
             exit(EXIT_SUCCESS);
         blockNum++;
 
@@ -527,7 +527,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct8LPRelaxWrittenSolsB2_0.9.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7LPRelaxWrittenSolsB6_0.9.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -538,7 +538,7 @@ int main()
 
     //reading 
     vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
+    readMDMKP("datac7.txt", MDMKRawProblems);
     vector<problemSet> problemSets; //will store the sorted problems of each block (each block contains all 6 cases), blocks are defined by the .txt file we read from (read https://people.brunel.ac.uk/~mastjjb/jeb/orlib/mdmkpinfo.html to learn more about what a block is)
     RawProblemsToCases(MDMKRawProblems, problemSets); // this just stores problems in a more understandable state that allows direct usage in solving algorithms
                                                       // rawProblem's problemSet objects contains a .problemByCase of 6 elements, one for each case 
