@@ -17,8 +17,8 @@ using namespace std;
 
 //Note: test picking best sol, capacity only, and demand only for the tabu search input
 // This is my first time adding a global, but it helps prevent parity issues with the duration of the Warmstart
-double timeLimit{900};
-int TabuIterationsPerProblem{2}; // note that this value is effectively multiplied by 2, so 10 = 20.
+double timeLimit{6000};
+int TabuIterationsPerProblem{100}; // note that this value is effectively multiplied by 2, so 10 = 20.
 ///////////////////// start of file reading code /////////////////////
 
 class MDMKRawProblem // each MDMKRawProblem is actually a set of 6 problems in 1 entity, but processing must be done for that to formm thus the "raw" name
@@ -510,11 +510,11 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
     for(auto caseNum : caseNums)
     {
         
-/*         if(blockNum < 5) //// use this code to start at a point other than block 1
+        if(blockNum < 11) //// use this code to start at a point other than block 1
         {
             blockNum++;
             continue;
-        }  */
+        } 
         
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
@@ -592,8 +592,8 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
     model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
     //model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
-    model.set(GRB_DoubleParam_TimeLimit, gurobiTime); // opposite version of the above timeLimit mechanic
-    // model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
+    model.set(GRB_DoubleParam_TimeLimit, 1); // Finite time selection
+    //model.set(GRB_DoubleParam_TimeLimit, gurobiTime); // opposite version of the above timeLimit mechanic
 /////////////////////////////////////////////////
         model.optimize();
 ///////////////////////////////////////////////////////////////
@@ -609,20 +609,21 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
                     profit += caseNum.problemsByCase[0][i].value; 
             }        
            
-
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
         }   
         else
         {
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << runTime.count() << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
-       
+       if(blockNum == 11) //// THIS IS FOR SELECT RUNS WEIORJERGJIEGOJRGIKGEIORGJIOWERIGJWEIORGJPAIUHNI9RGHAEIIARHN
+            exit(EXIT_SUCCESS);
         blockNum++; 
     }
 }
 
 int main()
 {
+    
     ofstream excel("MDMKPct8_900sShotgunApproach.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
    
     excel << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n'; // just by practice I separate the ",". To me it is more readable
@@ -637,7 +638,7 @@ int main()
     //reading 
     vector<MDMKRawProblem> MDMKRawProblems;
     //readMDMKP("datac7.txt", MDMKRawProblems);
-    readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
+    readMDMKP("datac7.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
     vector<problemSet> problemSets;
     RawProblemsToCases(MDMKRawProblems, problemSets);
