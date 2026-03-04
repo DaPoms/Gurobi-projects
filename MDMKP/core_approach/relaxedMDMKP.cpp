@@ -241,7 +241,7 @@ bool isFeasible(problemSet& caseProblem, vector<double>& xVals) //checks if solu
      //compares sums to what the actual limitations are
     for(int c{0}; c < caseProblem.knapsackCapacityVals.size(); c++)
             if(currKnapsackCapacityVals[c] > caseProblem.knapsackCapacityVals[c]) return false;
-    for(int d{0}; d < caseProblem.knapsackDemandRequirementVals.size(); d++)
+    for(int d{0}; d < caseProblem.problemsByCase[0][0].demandVal.size(); d++)
         if(currKnapsackDemandVals[d] < caseProblem.knapsackDemandRequirementVals[d]) return false;
     return true;
 }
@@ -336,10 +336,10 @@ vector<double> gurobiOnCore(problemSet& coreProblem, GRBEnv& env, ofstream& exce
          //model.write("testModel.lp");
         if(model.get(GRB_IntAttr_SolCount) == 0)
         {
-            // excel << "failed\n";
+            excel << "failed\n";
             return vector<double>(); //case of a failed solution
         }
-        excel << "passed\n"; 
+        excel << "passed"; 
         return GRBToDoubleDecisionValues(x); //returns core solution if found
 
 }
@@ -366,7 +366,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         {    
             blockNum++;
             continue;
-        }
+        } */
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
@@ -412,6 +412,76 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
         //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         
         //used to compare LP relaxed (linear relaxed problem) to the BIP (binary int problem) variant that is solved by the core problem method
+/*         if(model.get(GRB_IntAttr_SolCount) > 0)
+        {
+            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+            {
+                if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += caseProblem.problemsByCase[0][i].value;
+            }    
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; //Note this relaxation makes this problem no longer an MIP, meaning there IS NO MIPGAP
+               
+            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+            {
+                excel << i << ',';
+            }  
+            excel << endl;
+            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+            {
+                excel << x[i].get(GRB_DoubleAttr_X) << ',';
+            }   
+            excel << endl;
+        }
+        else // case of infeasible solution (as the x[i].get() would throw an error if our model is infeasible)
+        {
+            profit = -1;
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+        } */
+
+        if(blockNum == 2 ) //DELETE, this is code for solution extraction
+            exit(EXIT_SUCCESS);
+        blockNum++;
+
+        // CORE PROBLEM CODE: //
+        vector<double> solutionXVals = GRBToDoubleDecisionValues(x); //converts answer from gurobi into a from that can be altered by our core problem solver algorithm (whatever appraoch we use) below
+        vector<double> coreXVals; // will hold what the answer to the core is (the core are the decimal candidates of solutionXVals)
+       /*  
+       for(int i{0}; i < x.size(); i++) // For every decision variable.. // isolates core decision variables in coreXVals
+        {
+            double decisionVal = x[i].get(GRB_DoubleAttr_X); //this is guaranteed as LP relaxation always ends in a feasible solution (if one exists)
+            if(decisionVal != 1 && decisionVal != 0) // if item is a core problem candidate (decimal value in decision variable)
+                coreXVals.push_back(decisionVal); //partly useless, but does make coreXVals the proper size 
+        } // Note that decision vals are pushed correlated to their order in the vector<GRBVar> x, so this is a way we can keep track of our solution 
+        I realized this code is not very useful as I reimpliment it in GRBToDoubleDecisionValues()*/
+
+        problemSet coreProblem = extractCore(caseProblem, x); 
+        
+        /////////////////Core problem solution approaches /////////////////
+        // greedyCoreSolver(coreProblem, coreXVals); // code from greedy attempt
+        excel << "B" << blockNum << "C"  << caseCounter << " ";
+        coreXVals = gurobiOnCore(coreProblem, env, excel); // tries to solve core problem with gurobi fyi: it returns infeasible (showing the core cannot be solved with any approach)
+        ///////////////////////////////////////////////////////////////////
+
+        //transfers coreXVals to solutionXVals
+        if(coreXVals.size() != 0) //can comment this out when using gurobiOnCore, not very useful for core problem as we ultimately learned from this project that the core is often infeasible no matter what
+        {
+            int traverseCoreX{0};
+            for(int i{0}; i < solutionXVals.size(); i++)
+            {
+                double target = solutionXVals[i];
+                if( (target != 0 && target != 1) )
+                {
+                    if(coreXVals[traverseCoreX] == 1)
+                        solutionXVals[i] = 1;
+                    traverseCoreX++;
+                }
+
+            }
+            excel << isFeasible(caseProblem, solutionXVals) << "\n"; //if the core was able to be made into a solution,
+            // then isfeasible() would be used to test if solving the core made the problem as a whole feasible
+        }
+
+        /* 
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
@@ -437,48 +507,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
             profit = -1;
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
-
-        if(blockNum == 2 ) //DELETE, this is code for solution extraction
-            exit(EXIT_SUCCESS);
-        blockNum++;
-
-        // CORE PROBLEM CODE: //
-        vector<double> solutionXVals = GRBToDoubleDecisionValues(x); //converts answer from gurobi into a from that can be altered by our core problem solver algorithm (whatever appraoch we use) below
-        vector<double> coreXVals; // will hold what the answer to the core is (the core are the decimal candidates of solutionXVals)
-       /*  
-       for(int i{0}; i < x.size(); i++) // For every decision variable.. // isolates core decision variables in coreXVals
-        {
-            double decisionVal = x[i].get(GRB_DoubleAttr_X); //this is guaranteed as LP relaxation always ends in a feasible solution (if one exists)
-            if(decisionVal != 1 && decisionVal != 0) // if item is a core problem candidate (decimal value in decision variable)
-                coreXVals.push_back(decisionVal); //partly useless, but does make coreXVals the proper size 
-        } // Note that decision vals are pushed correlated to their order in the vector<GRBVar> x, so this is a way we can keep track of our solution 
-        I realized this code is not very useful as I reimpliment it in GRBToDoubleDecisionValues()*/
-
-        problemSet coreProblem = extractCore(caseProblem, x); 
-        
-        /////////////////Core problem solution approaches /////////////////
-        // greedyCoreSolver(coreProblem, coreXVals); // code from greedy attempt
-        coreXVals = gurobiOnCore(coreProblem, env, excel); // tries to solve core problem with gurobi fyi: it returns infeasible (showing the core cannot be solved with any approach)
-        ///////////////////////////////////////////////////////////////////
-
-        //transfers coreXVals to solutionXVals
-        if(coreXVals.size() != 0) //can comment this out when using gurobiOnCore, not very useful for core problem as we ultimately learned from this project that the core is often infeasible no matter what
-        {
-            int traverseCoreX{0};
-            for(int i{0}; i < solutionXVals.size(); i++)
-            {
-                double target = solutionXVals[i];
-                if( (target != 0 && target != 1) )
-                {
-                    if(coreXVals[traverseCoreX] == 1)
-                        solutionXVals[i] = 1;
-                    traverseCoreX++;
-                }
-
-            }
-            cout << "Is feasible?: " << isFeasible(caseProblem, solutionXVals) << "\n"; //if the core was able to be made into a solution,
-            // then isfeasible() would be used to test if solving the core made the problem as a whole feasible
-        }
+             */
         
     }
 }
@@ -514,20 +543,20 @@ int main()
     RawProblemsToCases(MDMKRawProblems, problemSets); // this just stores problems in a more understandable state that allows direct usage in solving algorithms
                                                       // rawProblem's problemSet objects contains a .problemByCase of 6 elements, one for each case 
 
-/*     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+    for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets); // stores the ith case from every block in caseSet (15 blocks total), 
                                              // but note that i is one behind what you expect. EX: case 1 is i = 0, case 2 is i = 1, and so on.
         runGurobiMDMKP(env, excel, caseSet, i);
     }
- */
-
-// In this program my goal is to test the LP relaxation approach on the hardest cases, case 3 and 6, and to see if its a valid or invalid approach for a sample size of n = 100
+ 
+/* 
+ // In this program my goal is to test the LP relaxation approach on the hardest cases, case 3 and 6, and to see if its a valid or invalid approach for a sample size of n = 100
     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes, an input of 2 means case 3.
     runGurobiMDMKP(env, excel, case3Set, 2);
-
+  */
 /* 
     //case 6
     vector<problemSet> case6Set; // case 6
