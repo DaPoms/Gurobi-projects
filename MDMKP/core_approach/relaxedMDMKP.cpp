@@ -7,7 +7,7 @@
 #include <algorithm>
 using namespace std;
 
-int CURRPROBLEM = 14;
+int CURRPROBLEM = 1;
 //raw MDMK problems are stored as followed:
 /* 
     for both vector<vector<long>> candidateCapacityAttributes and candidateDemandAttributes:
@@ -360,8 +360,8 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
     {
 
 
- /*        for(long& demandRequirement : caseProblem.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
-            demandRequirement *= 0.9; */
+        for(long& demandRequirement : caseProblem.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
+            demandRequirement *= 0.9;
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
         if(blockNum != CURRPROBLEM)
         {    
@@ -537,7 +537,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    string filename = "MDMKPct8LPRelaxWrittenSolsB" + to_string(CURRPROBLEM) + "_100PERCENT.csv";
+    string filename = "MDMKPct7LPRelaxWrittenSolsB" + to_string(CURRPROBLEM) + "_0.9p.csv";
     ofstream excel(filename); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
@@ -549,7 +549,7 @@ int main()
 
     //reading 
     vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
+    readMDMKP("datac7.txt", MDMKRawProblems);
     vector<problemSet> problemSets; //will store the sorted problems of each block (each block contains all 6 cases), blocks are defined by the .txt file we read from (read https://people.brunel.ac.uk/~mastjjb/jeb/orlib/mdmkpinfo.html to learn more about what a block is)
     RawProblemsToCases(MDMKRawProblems, problemSets); // this just stores problems in a more understandable state that allows direct usage in solving algorithms
                                                       // rawProblem's problemSet objects contains a .problemByCase of 6 elements, one for each case 
