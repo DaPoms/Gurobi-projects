@@ -4,8 +4,9 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <filesystem>
 using namespace std;
-
+namespace fs = std::filesystem;
 
 
 
@@ -71,55 +72,36 @@ struct problemSet
     Case 5: q = m/2
     Case 6: q = m
 */
+
 void separateCandidatesByCases(MDMKRawProblem& problem, problemSet& candidatesByCase) 
 {
-    candidatesByCase.problemsByCase.resize(6); // new thing learned! Can be used to easily create uninitialized values inside of the vector (or reshape vector to fit this function's usage)
+    candidatesByCase.problemsByCase.resize(1); // new thing learned! Can be used to easily create uninitialized values inside of the vector (or reshape vector to fit this function's usage)
     vector<vector<long>> MDMKCapacityAttributes = problem.getcandidateCapacityAtrributes(); 
     vector<vector<long>> MDMKDemandAttributes = problem.getcandidateDemandAtrributes();
     vector<vector<long>> MDMKValue = problem.getCandidateValue();
     long capacityVarsCount = MDMKCapacityAttributes.size(); //Shortcut to finding the amount of capacity variables (dimensions) for the problem
     long candidateCount = MDMKCapacityAttributes[0].size();//This is a way to find the # of candidates we have without having to pass directly (not too efficient, but less params = simpler). Only works if problem is not empty
-    int caseDemand1 = 1; //sort of pointless but slightly more readable as it describes what the value 1 is for (Case 1 of MDMKP problems)
-    int caseDemand2 = capacityVarsCount / 2;
-    int caseDemand3 = capacityVarsCount; // Note that case 1,2,3 are repeated for case 4,5,6 respectively
-     int order[6] = {0,3,1,4,2,5}; //order which we want to get candidates (most efficient order for the cases)
+ 
     for(int i{0}; i < candidateCount; i++)
     {
         MDMKCandidate candidate;
         for(int c{0}; c < capacityVarsCount; c++)
             candidate.capacityVal.push_back(MDMKCapacityAttributes[c][i]);
         
-       
-        for(int caseNum{0}; caseNum < 6; caseNum++) //Changes candidate to each case (note that caseNum = 0 is case 1 and caseNum = 5 is case 6)
-        {
-            int currentCase = order[caseNum];
-            candidate.value = MDMKValue[currentCase][i];
-
-            for(int currDemand{0}; currDemand < capacityVarsCount; currDemand++) //stops at case 6 (where same # of demands as capacity constraints)
-            {
-                // WARNING: Very ugly if statement below!
-                candidate.demandVal.push_back(MDMKDemandAttributes[currDemand][i]);
-
-                if ( (currDemand == caseDemand3 - 1 && (currentCase == 2 || currentCase == 5)) || (currDemand == caseDemand2 - 1 && (currentCase == 1 || currentCase == 4) ) || (currDemand == caseDemand1 - 1 && (currentCase == 0 || currentCase == 3)) ) //these checks are really inefficient but they work!
-                {
-                    candidatesByCase.problemsByCase[currentCase].push_back(candidate);
-                    
-                }      
-            }
-            
-            candidate.demandVal.clear();///
-        }
-        
+        candidate.value = MDMKValue[0][i];
+        for(int currDemand{0}; currDemand < capacityVarsCount; currDemand++) //stops at case 6 (where same # of demands as capacity constraints)
+            candidate.demandVal.push_back(MDMKDemandAttributes[currDemand][i]);
+              
+        candidatesByCase.problemsByCase[0].push_back(candidate);     
+        candidate.demandVal.clear();///
+          
     }
 }
 
 void RawProblemsToCases(vector<MDMKRawProblem>& problems, vector<problemSet>& cases)
 {
     problemSet candidatesByCase;
-    candidatesByCase.problemsByCase.resize(6);
-    //cases.resize(0);
-    /* for(problemSet problem : cases)
-        problem.problemsByCase.resize(6); */
+    candidatesByCase.problemsByCase.resize(1); 
     
     int size = problems.size();
     //for(MDMKRawProblem problem : problems)
@@ -158,19 +140,23 @@ void readAttributeOfMDMKP(ifstream& file, vector<vector<long>>& candidateCoeffic
 
 
 //Param of fileName is the file we want to read from, must be in the same folder as this file (though I could easily change this if needed)
-void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read MDMKP problem text files in accordance to the format done by https://people.brunel.ac.uk/~mastjjb/jeb/orlib/mdmkpinfo.html
+void readMDMKP(fs::path filePath, vector<MDMKRawProblem>& MDMKRawProblems) // read MDMKP problem text files in accordance to the format done by https://people.brunel.ac.uk/~mastjjb/jeb/orlib/mdmkpinfo.html
 {
     
-    ifstream file{fileName};
-    long testProblemCount, candidateCount, leConstraints; //leConstraints means <= constraints (also known as capacity constraints)
+    ifstream file{filePath};
+    long testProblemCount = 1, candidateCount, leConstraints; //leConstraints means <= constraints (also known as capacity constraints)
     
-    file >> testProblemCount;
+    /* file >> testProblemCount; */
 
     for(int i{0}; i < testProblemCount; i++) //traverses all the problem sets of the file 
     {
+        string throwaway; //ignores demand constraint, as we infer demand/capacity are equal in count
         MDMKRawProblem problemSet; //creates a new empty problem set for every instance
-        file >> candidateCount >> leConstraints; // These are the "header" variables for the brunel samples, they apply to all cases of a single problem (6 cases)
-        vector<vector<long>> candidateCapacityAtrributes; //each vector contains a separate attribute for every candidate 
+        file >> candidateCount >> leConstraints >> throwaway; // These are the "header" variables for the brunel samples, they apply to all cases of a single problem (6 cases)
+
+        readAttributeOfMDMKP(file, problemSet.getCandidateValue(), problemSet.getknapsackCapacityVals(), candidateCount, 1, false); // reads value of each object (Though the Brunel paper calls these "Cost" coefficients). 
+        
+        // vector<vector<long>> candidateCapacityAtrributes; //each vector contains a separate attribute for every candidate 
         vector<long> knapsackCapacityVals;
         readAttributeOfMDMKP(file, problemSet.getcandidateCapacityAtrributes(), problemSet.getknapsackCapacityVals(), candidateCount, leConstraints, true); // reads <= constraint
 
@@ -178,9 +164,8 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
         vector<long> knapsackDemandRequirementVals;
         readAttributeOfMDMKP(file, problemSet.getcandidateDemandAtrributes(), problemSet.getknapsackDemandRequirementVals(), candidateCount, leConstraints, true); // reads >= constraint
 
-        vector<vector<long>> candidateCostAtrributes; //Note that "knapsackCapacityVals" is useless here due to the boolean parameter being = false
+        // vector<vector<long>> candidateCostAtrributes; //Note that "knapsackCapacityVals" is useless here due to the boolean parameter being = false
         //I repurposed the leconstraints parameter to be the # of cases each model has, which is 6 for Brunel test cases
-        readAttributeOfMDMKP(file, problemSet.getCandidateValue(), problemSet.getknapsackCapacityVals(), candidateCount, 6, false); // reads value of each object (Though the Brunel paper calls these "Cost" coefficients). 
         
         MDMKRawProblems.push_back(problemSet);
     }
@@ -189,25 +174,25 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
 ///////////////////////////////////
 
 
-void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, int caseCounter)
+void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, fs::path p)
 {
     int blockNum{1};
     /////////////////////////////////////// Test branch code!!!! (ONCE AGAIN, REMOVE THIS AFTER DONE THE TESTING)
     for(auto caseNum : caseNums)
     {
-        for(long& demandRequirement : caseNum.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
-            demandRequirement *= 0.8;
+      /*   for(long& demandRequirement : caseNum.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
+            demandRequirement *= 0.8; */
     /////////////////////////
 
 
 
 
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
-        if(blockNum != 14)
+/*         if(blockNum != 14)
         {    
             blockNum++;
             continue;
-        }
+        } */
 
 
 
@@ -224,6 +209,8 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
         model.set(GRB_DoubleParam_TimeLimit, 3600); 
+        //model.set(GRB_DoubleParam_TimeLimit, 3600); 
+
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -292,8 +279,8 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
                     profit += caseNum.problemsByCase[0][i].value;
             }        
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            excel << p.filename() << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+          /*  for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
                 excel << i << ',';
             }  
@@ -301,14 +288,13 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
                 excel << x[i].get(GRB_DoubleAttr_X) << ',';
-            }   
-            excel << endl;
-            exit(EXIT_SUCCESS); // DEBUGGG CODEEEEEEEEEEEEEEEEEEE WILL STOP ON FIRST FEASIBLE ANS
+            }    
+            excel << endl; */
         }
         else // case of infeasible solution 
         {
             profit = -1;
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+            excel << p.filename() << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
         blockNum++;
 
@@ -345,7 +331,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7_3600s(Gurobi_forLPCompare)B14_80p.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("SamehTestCases.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -354,22 +340,28 @@ int main()
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
     env.start();
 
-    //reading 
-   vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("datac7.txt", MDMKRawProblems);
-    //readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
-    vector<vector<MDMKCandidate>> candidatesByCase;
-    vector<problemSet> problemSets;
-    RawProblemsToCases(MDMKRawProblems, problemSets);
 
-/*     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+    fs::path p = ("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/Sameh_n1000Dataset");
+    for(const fs::directory_entry file : fs::recursive_directory_iterator(p))
     {
-        vector<problemSet> caseSet;
-        formatCase(i, caseSet, problemSets);
-        runGurobiMDMKP(env, excel, caseSet, i);
-    } */
-        vector<problemSet> caseSet;
-    formatCase(2, caseSet, problemSets);
-    runGurobiMDMKP(env, excel, caseSet, 2);
+        //reading 
+        vector<MDMKRawProblem> MDMKRawProblem;
+        readMDMKP(file.path(), MDMKRawProblem);
+        //readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
+        vector<vector<MDMKCandidate>> candidatesByCase;
+        vector<problemSet> problemSets;
+        RawProblemsToCases(MDMKRawProblem, problemSets);
+
+    /*     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
+        {
+            vector<problemSet> caseSet;
+            formatCase(i, caseSet, problemSets);
+            runGurobiMDMKP(env, excel, caseSet, i);
+        } */
+            vector<problemSet> caseSet;
+        formatCase(0, caseSet, problemSets);
+        runGurobiMDMKP(env, excel, caseSet, file.path());
+        
+    }
     return 0;
 }
