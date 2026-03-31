@@ -195,19 +195,19 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
     /////////////////////////////////////// Test branch code!!!! (ONCE AGAIN, REMOVE THIS AFTER DONE THE TESTING)
     for(auto caseNum : caseNums)
     {
-        for(long& demandRequirement : caseNum.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
-            demandRequirement *= 0.8;
+/*         for(long& demandRequirement : caseNum.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
+            demandRequirement *= 0.8; */
     /////////////////////////
 
 
 
 
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
-        if(blockNum != 14)
+ /*        if(blockNum != 14)
         {    
             blockNum++;
             continue;
-        }
+        } */
 
 
 
@@ -303,7 +303,6 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
                 excel << x[i].get(GRB_DoubleAttr_X) << ',';
             }   
             excel << endl;
-            exit(EXIT_SUCCESS); // DEBUGGG CODEEEEEEEEEEEEEEEEEEE WILL STOP ON FIRST FEASIBLE ANS
         }
         else // case of infeasible solution 
         {
