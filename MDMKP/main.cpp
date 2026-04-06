@@ -277,7 +277,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         //////////////////////////// */
         
 
-        model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+        // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         model.optimize();
 
         long long profit{0};
@@ -293,7 +293,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
                     profit += caseNum.problemsByCase[0][i].value;
             }        
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+            /* for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
                 excel << i << ',';
             }  
@@ -302,7 +302,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             {
                 excel << x[i].get(GRB_DoubleAttr_X) << ',';
             }   
-            excel << endl;
+            excel << endl; */
         }
         else // case of infeasible solution 
         {
@@ -344,7 +344,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7_3600s(Gurobi_forLPCompare)B14_80p.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7_3600s_n100_30c_30dcase3+6.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -355,7 +355,7 @@ int main()
 
     //reading 
    vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("datac7.txt", MDMKRawProblems);
+    readMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/datac7.txt", MDMKRawProblems);
     //readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
     vector<problemSet> problemSets;
@@ -367,8 +367,19 @@ int main()
         formatCase(i, caseSet, problemSets);
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
-        vector<problemSet> caseSet;
-    formatCase(2, caseSet, problemSets);
-    runGurobiMDMKP(env, excel, caseSet, 2);
+
+    int caseNum = 3; //just a fool proof way for me to test specific cases 
+    //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
+
+    vector<problemSet> caseSet;
+    formatCase(caseNum - 1, caseSet, problemSets);
+    runGurobiMDMKP(env, excel, caseSet, caseNum - 1);
+
+    caseNum = 6; //just a fool proof way for me to test specific cases 
+    //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
+    caseSet.clear();
+    formatCase(caseNum - 1, caseSet, problemSets);
+    runGurobiMDMKP(env, excel, caseSet, caseNum - 1);
+
     return 0;
 }
