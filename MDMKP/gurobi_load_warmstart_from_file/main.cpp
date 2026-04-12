@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <string>
 #include <sstream>
+#include <regex>
 using namespace std;
 
 /* 
@@ -186,33 +187,66 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
 }
 
 //////////Reading warm start directory/////////////////////////
+
+
+//////////////////
+int extractNumber(const std::string& path, const std::string& pattern) {  //This function is NOT MADE BY ME
+    std::regex re(pattern);
+    std::smatch match;
+    if (std::regex_search(path, match, re) && match.size() > 1) {
+        return std::stoi(match[1]);
+    }
+    return 0;
+}
+//////////////////////
+
 vector<vector<int>> getWarmSols(string directoryName, int candidateCount)
 {
     string read;
     vector<vector<int>> ans;
-    for(const auto& itemInDir : filesystem::recursive_directory_iterator(directoryName))
-    {
-        if(itemInDir.is_regular_file() == true && itemInDir.path().stem() == "run_000_best_solution") // sol must only be name this
-        {
-            vector<int> sol;
+    vector<filesystem::directory_entry> sortedDirs; // We need to define sorted order (problem 1 -> 15)
+    for(const auto& folderInDir : filesystem::recursive_directory_iterator(directoryName))
+        if(folderInDir.is_directory() == true)
+            sortedDirs.push_back(folderInDir);
+    
+       
+    std::sort(sortedDirs.begin(), sortedDirs.end(), /// NOT MADE BY ME
+        [](const filesystem::path& a, const filesystem::path& b) {
+            int aB = extractNumber(a.string(), R"(B(\d+)C)");
+            int aC = extractNumber(a.string(), R"(B\d+C(\d+))");
+            int bB = extractNumber(b.string(), R"(B(\d+)C)");
+            int bC = extractNumber(b.string(), R"(B\d+C(\d+))");
             
-            getline(ifstream{itemInDir.path()}, read);
-            istringstream stringifiedDecisions{read};
-            for(int i{0}; i < candidateCount; i++)
+            if (aB != bB) return aB < bB;
+            return aC < bC;
+        });
+
+    for(const auto dir : sortedDirs)
+    {
+        for(const auto& itemInDir : filesystem::recursive_directory_iterator(dir))
+        {
+            if(itemInDir.is_regular_file() == true && itemInDir.path().stem() == "run_000_best_solution") // sol must only be name this
             {
-                try
-                {
-                    char commaConsume;
-                    int decision;
-                    stringifiedDecisions >> decision >> commaConsume; //commaConsume is only for consumption, not usage
-                    sol.push_back(decision);
-                } catch(exception& e)
-                {
-                    continue;
-                }
+                vector<int> sol;
                 
+                getline(ifstream{itemInDir.path()}, read);
+                istringstream stringifiedDecisions{read};
+                for(int i{0}; i < candidateCount; i++)
+                {
+                    try
+                    {
+                        char commaConsume;
+                        int decision;
+                        stringifiedDecisions >> decision >> commaConsume; //commaConsume is only for consumption, not usage
+                        sol.push_back(decision);
+                    } catch(exception& e)
+                    {
+                        continue;
+                    }
+                    
+                }
+                ans.push_back(sol);            
             }
-            ans.push_back(sol);            
         }
     }
     return ans;
@@ -262,7 +296,7 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
         
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
-        model.set(GRB_DoubleParam_TimeLimit, 0.5); 
+        model.set(GRB_DoubleParam_TimeLimit, 0.1); 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -316,14 +350,19 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
         //////////////////////////// 
         
 
+
+        ///// Warm sol insertion ///////////////////
+        vector<int> sol = warmSols[blockNum-1];
+        for(int i{0}; i < sol.size(); i++)
+            x[i].set(GRB_DoubleAttr_Start, sol[i]);
+        ////////////////////////////////////////////
+
         // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
-       /*  model.optimize();
+        model.optimize();
 
         long long profit{0};
 
-        
-        
-        
+    
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
@@ -332,7 +371,8 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
                     profit += caseNum.problemsByCase[0][i].value;
             }        
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-            /* for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+           /*  
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
                 excel << i << ',';
             }  
@@ -342,6 +382,7 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
                 excel << x[i].get(GRB_DoubleAttr_X) << ',';
             }   
             excel << endl;   THEREWAS A COMMENTBLOCK HEREEEEEE
+             */
         }
         else // case of infeasible solution 
         {
@@ -352,7 +393,7 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
 
 
 
- */
+ 
 
 
 /* 
@@ -383,7 +424,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7_3600s_n100_30c_30dcase3+6.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7Garcia_3600s_n100_30c_30dcase3.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -412,8 +453,8 @@ int main()
 
     vector<problemSet> caseSet;
     formatCase(caseNum - 1, caseSet, problemSets);
-    vector<vector<int>> warmSols = getWarmSols("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/Garcia_results", caseSet[0].problemsByCase[0].size());
-    //runGurobiMDMKPWarm(env, excel, caseSet, caseNum - 1, getWarmSols("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/Garcia_results"));
+    vector<vector<int>> warmSols = getWarmSols("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/Garcia_results/case_3", caseSet[0].problemsByCase[0].size());
+    runGurobiMDMKPWarm(env, excel, caseSet, caseNum - 1, warmSols);
 
     /* caseNum = 6; //just a fool proof way for me to test specific cases 
     //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
