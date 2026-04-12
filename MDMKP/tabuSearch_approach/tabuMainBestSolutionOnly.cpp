@@ -575,13 +575,13 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
     //model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
     //model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
-    model.set(GRB_DoubleParam_TimeLimit, 600); 
+    model.set(GRB_DoubleParam_TimeLimit, 3600); 
     //model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
     //model.set(GRB_IntParam_MIPFocus, 3);
 /////////////////////////////////////////////////
 
 ///////////////////////////////////TEST CODE, DELETE!!!
-model.set(GRB_DoubleParam_TuneTimeLimit,20400);
+/* model.set(GRB_DoubleParam_TuneTimeLimit,20400);
         model.tune();
         int resultcount = model.get(GRB_IntAttr_TuneResultCount);
         if(resultcount > 0)
@@ -590,7 +590,7 @@ model.set(GRB_DoubleParam_TuneTimeLimit,20400);
             model.write("tune.prm");
         }
 
-        exit(EXIT_SUCCESS);
+        exit(EXIT_SUCCESS); */
 /////////////////////////////////
         model.optimize();
 ///////////////////////////////////////////////////////////////
@@ -762,7 +762,7 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 
 int main()
 {
-    ofstream excel("MDMKP_1200sDynamicTabuGurobiMIPFOCUS3_3+-3TT.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKP_ct73600sDynamicTabuGurobi_3+-3TT.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
    
     excel << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n'; // just by practice I separate the ",". To me it is more readable
     //excel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
@@ -789,17 +789,17 @@ int main()
     }
 
    */
- 
+/*  
     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case3Set, 2); //you pass functions just by name
-
+ */
 
     
     //case 6
-/*     vector<problemSet> case6Set; // case 6
+    vector<problemSet> case6Set; // case 6
     formatCase(5, case6Set, problemSets);
-    runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case6Set, 5); */
+    runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case6Set, 5);
    
 
     

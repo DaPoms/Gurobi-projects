@@ -223,7 +223,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
-        model.set(GRB_DoubleParam_TimeLimit, 3600); 
+        model.set(GRB_DoubleParam_TimeLimit, 600); 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -263,22 +263,21 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         
 
 
-      /*   // ///////////////////// EXPERIMENT DELETE ERIGGIRJREGJGJIEIJ   preSparsify 1
-        model.set(GRB_DoubleParam_TuneTimeLimit,600);
+       // ///////////////////// EXPERIMENT DELETE ERIGGIRJREGJGJIEIJ  
+       model.set(GRB_IntParam_TuneResults, 2); // Must say 2 as the first is the baseline, 2nd is the best case
+        model.set(GRB_DoubleParam_TuneTimeLimit,36000);
         model.tune();
         int resultcount = model.get(GRB_IntAttr_TuneResultCount);
-        if(resultcount > 0)
-        {
-            model.getTuneResult(resultcount-1);
-            model.write("tune.prm");
-        }
+        model.getTuneResult(1); //0 is also the baseline, 1 is for best case
+        model.write("tune.prm");
         
         exit(EXIT_SUCCESS);
-        //////////////////////////// */
+       
+        //////////////////////////// 
         
 
         // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
-        model.optimize();
+       /*  model.optimize();
 
         long long profit{0};
 
@@ -302,7 +301,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             {
                 excel << x[i].get(GRB_DoubleAttr_X) << ',';
             }   
-            excel << endl; */
+            excel << endl;   THEREWAS A COMMENTBLOCK HEREEEEEE
         }
         else // case of infeasible solution 
         {
@@ -313,7 +312,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
 
 
 
-
+ */
 
 
 /* 
@@ -355,7 +354,7 @@ int main()
 
     //reading 
    vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/datac7.txt", MDMKRawProblems);
+    readMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/datasetct9.txt", MDMKRawProblems);
     //readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
     vector<problemSet> problemSets;
@@ -375,11 +374,11 @@ int main()
     formatCase(caseNum - 1, caseSet, problemSets);
     runGurobiMDMKP(env, excel, caseSet, caseNum - 1);
 
-    caseNum = 6; //just a fool proof way for me to test specific cases 
+    /* caseNum = 6; //just a fool proof way for me to test specific cases 
     //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
     caseSet.clear();
     formatCase(caseNum - 1, caseSet, problemSets);
     runGurobiMDMKP(env, excel, caseSet, caseNum - 1);
-
+ */
     return 0;
 }

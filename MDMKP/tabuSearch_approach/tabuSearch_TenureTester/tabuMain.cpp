@@ -782,8 +782,8 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 
 int main()
 {
-    ofstream excel("MDMKP_600sTabu3base3radiusTenure.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel2("MDMKP_600sTabu15base15radiusTenure.csv");
+    ofstream excel("MDMKP_3600sTabu3base3radiusTenure.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel2("MDMKP_3600sTabu15base15radiusTenure.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n'; // just by practice I separate the ",". To me it is more readable
     excel2 << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n';
     //excel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
@@ -801,14 +801,14 @@ int main()
     vector<problemSet> problemSets;
     RawProblemsToCases(MDMKRawProblems, problemSets);
   
-
+/* 
     for(int i{0}; i <= 5; i++) //extracts cases 1-6 and runs gurobi on them
     {
         vector<problemSet> caseSet;
         formatCase(i, caseSet, problemSets);
         runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, excel2, caseSet, i);
     }
-
+ */
   
 /*  
     vector<problemSet> case3Set; // case 3 
@@ -818,9 +818,9 @@ int main()
 
     
     //case 6
-/*     vector<problemSet> case6Set; // case 6
+    vector<problemSet> case6Set; // case 6
     formatCase(5, case6Set, problemSets);
-    runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case6Set, 5); */
+    runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case6Set, 5);
    
 
     
