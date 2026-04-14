@@ -17,7 +17,7 @@ using namespace std;
 
 //Note: test picking best sol, capacity only, and demand only for the tabu search input
 // This is my first time adding a global, but it helps prevent parity issues with the duration of the Warmstart
-double timeLimit{600};
+double timeLimit{3600};
 ///////////////////// start of file reading code /////////////////////
 
 class MDMKRawProblem // each MDMKRawProblem is actually a set of 6 problems in 1 entity, but processing must be done for that to formm thus the "raw" name
@@ -507,13 +507,13 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
     int blockNum{1};
     for(auto caseNum : caseNums)
     {
-        /*
-        if(blockNum < 14) //// use this code to start at a point other than block 1
+        
+        if(blockNum < 5) //// use this code to start at a point other than block 1
         {
             blockNum++;
             continue;
         } 
-        */
+        
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
@@ -575,7 +575,7 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 //////////Model settings/////////////////////////(placed here due to gurobiAdditionalTime)
     //model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
     //model.set(GRB_DoubleParam_TimeLimit, 600 + gurobiAdditionalTime); //600 + whatever time is left from the warm start, this is the dynamic version
-    model.set(GRB_DoubleParam_TimeLimit, 3600); 
+    model.set(GRB_DoubleParam_TimeLimit, gurobiAdditionalTime); 
     //model.set(GRB_DoubleParam_TimeLimit, 1); //non dynamic version
     //model.set(GRB_IntParam_MIPFocus, 3);
 /////////////////////////////////////////////////
@@ -615,6 +615,7 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
         }
        
         blockNum++; 
+        exit(1); // REMOvE, THIS IS JUST FOR MANUAL SINGLE TESTING
     }
 }
 
@@ -762,7 +763,7 @@ void runWarmGurobiMDMKP(t warmStartFunction, GRBEnv& env, ofstream& excel,  vect
 
 int main()
 {
-    ofstream excel("MDMKP_ct73600sDynamicTabuGurobi_3+-3TT.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKP_ct73600sDynamicTabuGurobiCASE3FORbigTABLE.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
    
     excel << "Name" << "," << "Obj Fn" << "," << "Tabu Runtime" << "," << "Gurobi Runtime" << "," << "MIPGAP" << '\n'; // just by practice I separate the ",". To me it is more readable
     //excel << "Solution Capacity Totals" << "," << "Capacity Right Coefficients (required val)" <<  "," << "Solution Demand totals" << "," << "Demand Right Coefficients" << '\n';
@@ -789,19 +790,19 @@ int main()
     }
 
    */
-/*  
+ 
     vector<problemSet> case3Set; // case 3 
     formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case3Set, 2); //you pass functions just by name
- */
 
-    
+
+/*     
     //case 6
     vector<problemSet> case6Set; // case 6
     formatCase(5, case6Set, problemSets);
     runWarmGurobiMDMKP(tabuSearchMDMKP, env, excel, case6Set, 5);
    
 
-    
+     */
     return 0;
 }
