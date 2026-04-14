@@ -260,6 +260,9 @@ vector<vector<int>> getWarmSols(string directoryName, int candidateCount)
 void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, int caseCounter, vector<vector<int>> warmSols)
 {
     int blockNum{1};
+     //// FOR GARCIA ONLY //
+        vector<double> case3WarmupTimes = {609.459900, 618.396484, 624.252014, 616.911804, 606.795166, 615.652954, 602.282410, 622.557495, 623.370544, 616.180664, 603.579773, 626.419189, 617.750061, 627.961182, 605.546143};
+        ///////////////////////
     /////////////////////////////////////// Test branch code!!!! (ONCE AGAIN, REMOVE THIS AFTER DONE THE TESTING)
     for(auto caseNum : caseNums)
     {
@@ -276,7 +279,7 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
     ///////Problem selection/////////////////////
 
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
- /*        if(blockNum != 14)
+/*         if(blockNum < 4)
         {    
             blockNum++;
             continue;
@@ -293,10 +296,10 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
         
         GRBModel model(env);
         
-        
+       
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
-        model.set(GRB_DoubleParam_TimeLimit, 0.1); 
+        model.set(GRB_DoubleParam_TimeLimit, 3600 - case3WarmupTimes[blockNum - 1]); 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -324,9 +327,7 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
             GRBLinExpr demandExpr;
             for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
             {
-                    //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
                     demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                
             }
             demandConstr.push_back(demandExpr);
         }
@@ -370,7 +371,7 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
                     profit += caseNum.problemsByCase[0][i].value;
             }        
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << case3WarmupTimes[blockNum - 1] << ","  << model.get(GRB_DoubleAttr_Runtime)  << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
            /*  
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
@@ -424,7 +425,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7Garcia_3600s_n100_30c_30dcase3.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7GarciaGurobi_3600s_n100_30c_30dcase3.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -453,7 +454,7 @@ int main()
 
     vector<problemSet> caseSet;
     formatCase(caseNum - 1, caseSet, problemSets);
-    vector<vector<int>> warmSols = getWarmSols("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/Garcia_results/case_3", caseSet[0].problemsByCase[0].size());
+    vector<vector<int>> warmSols = getWarmSols("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/Garcia_results/600s/case_3", caseSet[0].problemsByCase[0].size());
     runGurobiMDMKPWarm(env, excel, caseSet, caseNum - 1, warmSols);
 
     /* caseNum = 6; //just a fool proof way for me to test specific cases 
