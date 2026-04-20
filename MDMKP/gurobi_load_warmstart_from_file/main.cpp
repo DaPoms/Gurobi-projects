@@ -300,7 +300,7 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
         //model.set(GRB_DoubleParam_TimeLimit, 3600 - case3WarmupTimes[blockNum - 1]); 
-        model.set(GRB_DoubleParam_TimeLimit, 0.1);
+        model.set(GRB_DoubleParam_TimeLimit, 3600 - case6WarmupTimes[blockNum - 1]);
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -426,7 +426,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7GarciaGurobi_3600s_n100_30c_30dcase6FULL600s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7GarciaGurobi_3600s_n100_30c_30dcase6.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
