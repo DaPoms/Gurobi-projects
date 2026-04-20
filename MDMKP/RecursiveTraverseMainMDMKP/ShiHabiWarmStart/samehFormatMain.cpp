@@ -345,11 +345,11 @@ int main()
     int blockNum{1};
     for(const fs::directory_entry file : fs::recursive_directory_iterator(p))
     {
-         if(blockNum < 15) //// use this code to start at a point other than block 1
+       /*   if(blockNum < 15) //// use this code to start at a point other than block 1
         {
             blockNum++;
             continue;
-        } 
+        }  */
         //reading 
         vector<MDMKRawProblem> MDMKRawProblem;
         readMDMKP(file.path(), MDMKRawProblem);
