@@ -426,7 +426,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7_Garcia_Gurobi3600s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7_GarciaGurobi_3600sCase6.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -436,7 +436,7 @@ int main()
     env.start();
 
     //reading 
-   vector<MDMKRawProblem> MDMKRawProblems;
+    vector<MDMKRawProblem> MDMKRawProblems;
     readMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/datac7.txt", MDMKRawProblems);
     //readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
@@ -450,15 +450,16 @@ int main()
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
 
-    int caseNum = 3; //just a fool proof way for me to test specific cases 
+    int caseNum = 6; //just a fool proof way for me to test specific cases 
     //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
 
     vector<problemSet> caseSet;
     formatCase(caseNum - 1, caseSet, problemSets);
-    vector<vector<int>> warmSols = getWarmSols("C:/Users/Pomer/Desktop/Gurobi projects/Garcia_ct7_600s/case3", caseSet[0].problemsByCase[0].size());
+    vector<vector<int>> warmSols = getWarmSols("C:/Users/Pomer/Desktop/Gurobi projects/3600sCt7GarciaResults/case6", caseSet[0].problemsByCase[0].size());
     runGurobiMDMKPWarm(env, excel, caseSet, caseNum - 1, warmSols);
 
-    /* caseNum = 6; //just a fool proof way for me to test specific cases 
+
+    /* caseNum = 6; //just a fool proof way for me to test specific cases   
     //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
     caseSet.clear();
     formatCase(caseNum - 1, caseSet, problemSets);
