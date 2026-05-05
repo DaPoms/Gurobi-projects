@@ -299,9 +299,9 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
        
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
-        //model.set(GRB_DoubleParam_TimeLimit, 0.1); // This is used for just getting MIPGAP of warm sol
+        model.set(GRB_DoubleParam_TimeLimit, 0.1); // This is used for just getting MIPGAP of warm sol
         //model.set(GRB_DoubleParam_TimeLimit, 3600 - caseWarmupTimes[blockNum - 1]); //THIS IS USEDS FOR ACTUAL WARM START
-        model.set(GRB_DoubleParam_TimeLimit, 3600); 
+        //model.set(GRB_DoubleParam_TimeLimit, 3600); 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -361,8 +361,9 @@ void runGurobiMDMKPWarm(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
             x[i].set(GRB_DoubleAttr_Start, sol[i]);
         ////////////////////////////////////////////
 
-        // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+        //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         model.optimize();
+
 
         long long profit{0};
 
