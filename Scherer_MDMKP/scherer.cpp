@@ -24,7 +24,7 @@ struct MDMKProblem
 };
 
 ///Scherer specific code //////////////////////////////////////////lear
-MDMKProblem formIntoProblem (double bestObjVal, vector<double> line3ObjVals, vector<double> line4CapacityLimits, vector<double> line5DemandLimits, vector<vector<double>> line6CandidateCapacityVals, vector<vector<double>> line7CandidateDemandVals)
+MDMKProblem formIntoProblem (double bestObjVal, vector<double>& line3ObjVals, vector<double>& line4CapacityLimits, vector<double>& line5DemandLimits, vector<vector<double>>& line6CandidateCapacityVals, vector<vector<double>>& line7CandidateDemandVals)
 {
     MDMKProblem ans; 
     vector<MDMKCandidate> candidates;
@@ -132,12 +132,19 @@ vector<MDMKProblem> readSchererMDMKP(string fileName)
 ///////////////////////////////////
 
 
-void runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& problems)
+vector<vector<int>> runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& problems)
 {
     int blockNum{1};
+    vector<vector<int>> sols;
     /////////////////////////////////////// Test branch code!!!! (ONCE AGAIN, REMOVE THIS AFTER DONE THE TESTING)
     for(auto problem : problems)
     {
+
+        if(blockNum != 18 && blockNum != 20 && blockNum != 25 && blockNum != 27 && blockNum != 35 && blockNum != 36 && blockNum != 44 && blockNum != 45 ) // only runs the hardest Scherer cases
+        {
+            blockNum++;
+            continue;
+        }
     /////////////////////////
 
         vector<GRBLinExpr> demandConstr;
@@ -147,8 +154,112 @@ void runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& pr
         
         
         
-        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
+        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  
         model.set(GRB_DoubleParam_TimeLimit, 3600); 
+        vector<GRBVar> x; //variable for if we include / not include item in knapsack
+        model.set(GRB_IntParam_MIPFocus, 2);
+//////////////////// objective value definition ///////////////
+        for(int i{0}; i < problem.candidates.size(); i++) 
+            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
+       
+        for(int i{0}; i < problem.candidates.size(); i++)
+                objective += problem.candidates[i].value * x[i]; 
+        model.setObjective(objective, GRB_MAXIMIZE);
+//////////////////// capacity constraint ///////////////
+        for(int i{0}; i < problem.knapsackCapacityVals.size(); i++) 
+        {
+            GRBLinExpr capacityExpr;
+           
+            for(int e{0}; e < problem.candidates.size(); e++)
+                capacityExpr += problem.candidates[e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+                
+            capacityConstr.push_back(capacityExpr);
+        }
+        for(int i{0}; i < capacityConstr.size(); i++)
+            model.addConstr(capacityConstr[i] <= problem.knapsackCapacityVals[i] );
+       
+//////////////////// demand constraint ///////////////
+        for(int i{0}; i < problem.candidates[0].demandVal.size(); i++)  // NEED TO CHECK CASE VAL REIJEIOGJIGJERJIGOERGIOREGJIERGJIOERGJIOERGJIOGJOERGJO
+        {
+            GRBLinExpr demandExpr;
+            for(int e{0}; e < problem.candidates.size(); e++)
+                    demandExpr += problem.candidates[e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]   
+            demandConstr.push_back(demandExpr);
+        }
+        for(int i{0}; i < demandConstr.size(); i++)
+            model.addConstr(demandConstr[i] >= problem.knapsackDemandRequirementVals[i] );
+      
+
+        // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
+         model.optimize();
+
+
+        //Stores answer in sol
+        vector<int> sol;
+        if(model.get(GRB_IntAttr_SolCount) > 0)
+            for(int i{0}; i < problem.candidates.size(); i++)
+                sol.push_back(x[i].get(GRB_DoubleAttr_X));
+        sols.push_back(sol);
+        ///////////////////////
+
+        double profit{0};
+        if(model.get(GRB_IntAttr_SolCount) > 0)
+        {
+
+            for(int i{0}; i < problem.candidates.size(); i++)
+            {
+                if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
+                    profit += problem.candidates[i].value;
+            }        
+            excel << setprecision(15) << to_string(blockNum) + "_" + to_string(problem.candidates.size()) + "_" + to_string(problem.knapsackCapacityVals.size()) + "_" + to_string(problem.knapsackDemandRequirementVals.size()) << "," << problem.bestObjVal << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+      
+        }
+        else // case of infeasible solution 
+        {
+            profit = -1;
+            excel << setprecision(15) << to_string(blockNum) + "_" + to_string(problem.candidates.size()) + "_" + to_string(problem.knapsackCapacityVals.size()) + "_" + to_string(problem.knapsackDemandRequirementVals.size()) << ","<< problem.bestObjVal << ","  <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+        }
+        blockNum++;
+
+      
+    }
+
+    return sols;
+}
+
+void runGurobiMDMKPSchererWarmSSIT(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& problems)
+{
+    vector<vector<int>> warmSols = runGurobiMDMKPScherer(env, excel, problems);
+    
+    int blockNum{1};
+    int warmStartI{0};
+    /////////////////////////////////////// Test branch code!!!! (ONCE AGAIN, REMOVE THIS AFTER DONE THE TESTING)
+    for(auto problem : problems)
+    {
+        vector<int> warmSol;
+        if(blockNum != 18 && blockNum != 20 && blockNum != 25 && blockNum != 27 && blockNum != 35 && blockNum != 36 && blockNum != 44 && blockNum != 45 ) // only runs the hardest Scherer cases
+        {
+            blockNum++;
+            continue;
+        }
+        else
+        {
+            warmSol = warmSols[warmStartI]; // Not the safest way, but the easiest way for warm start
+            warmStartI++;
+        }
+
+    /////////////////////////
+
+        vector<GRBLinExpr> demandConstr;
+        vector<GRBLinExpr> capacityConstr;
+        GRBLinExpr objective;
+        GRBModel model(env);
+        
+        
+        
+        model.set(GRB_DoubleParam_MIPGap, 0.001); //What we deem optimal mipgap to terminate the program  
+        model.set(GRB_DoubleParam_TimeLimit, 3600); 
+        model.set(GRB_IntParam_MIPFocus, 2);
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < problem.candidates.size(); i++) 
@@ -190,8 +301,13 @@ void runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& pr
         
 
         // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
-         model.optimize();
 
+        // warm start 
+        if(warmSol.size() != 0)
+            for(int i{0}; i < problem.candidates.size(); i++)
+                x[i].set(GRB_DoubleAttr_Start, warmSol[i]);
+
+        model.optimize();
         double profit{0};
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
@@ -210,20 +326,68 @@ void runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& pr
             excel << setprecision(15) << to_string(blockNum) + "_" + to_string(problem.candidates.size()) + "_" + to_string(problem.knapsackCapacityVals.size()) + "_" + to_string(problem.knapsackDemandRequirementVals.size()) << ","<< problem.bestObjVal << ","  <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
         blockNum++;
-
-
-
-
-
-
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool isMixedProblem(vector<MDMKCandidate> candidates)
+{
+    for(MDMKCandidate c : candidates)
+    {
+        if(c.value < 0)
+            return true;
+    }
+    return false;
+}
  
+//Fills a CSV with whether the problems are mixed or positive value coefficient probems
+void storeProblemType(const vector<MDMKProblem>& problems, ofstream& excel)
+{
+    int blockNum = 1;
+    for (MDMKProblem problem : problems)
+    {
+        vector<MDMKCandidate>& candidates = problem.candidates; // I somehow forgot the & is used to make references (too much java programming this semester! They automatically evaluate by reference, not by hard copy)
+        bool isMixed = isMixedProblem(candidates);
+
+        if(isMixed)
+        {
+            excel << blockNum << "," << "M" << endl;
+        }
+        else
+        {
+            excel << blockNum << "," << "P" << endl;
+        }
+        blockNum++;
+    }
+}
 
 
 int main()
 {
-    ofstream excel("MDMKP_Scherer.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKP_SchererHardestproblemsMipfocus2.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Best known Obj" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << endl;
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -233,8 +397,8 @@ int main()
     env.start();
 
     vector<MDMKProblem> problems = readSchererMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/Scherer_MDMKP/MDMKP_Instances_Scherer.txt");
-
-    runGurobiMDMKPScherer(env, excel, problems);
+    //storeProblemType(problems, excel);
+    runGurobiMDMKPSchererWarmSSIT(env, excel, problems);
     excel.close();
 
     return 0;

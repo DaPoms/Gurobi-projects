@@ -1,0 +1,7 @@
+Garcia code says:
+[Done] ct7_B1C3SingleTest.txt -> best_overall_profit=10547.000
+
+Gurobi reports:
+Loaded user MIP start with objective 9389
+
+Goal: Figure out the cause of this disconnect
