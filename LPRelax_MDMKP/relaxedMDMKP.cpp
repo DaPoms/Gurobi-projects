@@ -348,7 +348,24 @@ vector<double> gurobiOnCore(problemSet& coreProblem, GRBEnv& env, ofstream& exce
 
 
 
+void loosenCapAndDemand(vector<int>& isLoosenedCapacity, vector<int>& isLoosenedDemand, problemSet& caseNum)
+{
+    int i{0};
+    for(long& capacityRHS : caseNum.knapsackCapacityVals) //modifying the demand requirements (loosening requirements)
+    {
+        if(isLoosenedCapacity[i])
+            capacityRHS *= 1.04; // demand decrease, capacity should increase. Was tested in increments of 10%
+        i++;
+    }
 
+    i = 0;
+    for(long& demandRHS : caseNum.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
+    {
+        if(isLoosenedDemand[i])
+            demandRHS *= 0.96;
+        i++;
+    }
+}
 
 //note: by design, caseProblems should only hold problemSets of the same case, so you need a for loop with formatByCase() being used to evaluate all cases
 void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProblems, int caseCounter)
@@ -358,6 +375,35 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
     int blockNum{1};
     for(problemSet caseProblem : caseProblems)
     {
+    /*     Used for 99p LP relax of 100
+        vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,1,0,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1};
+        vector<int> isLoosenedDemand   = {1,1,0,1,0,1,1,1,0,0,1,0,1,1,1,0,0,0,0,0,1,0,1,1,1,1,1,1,0,1};
+    */
+    // Used for 98p (we use the output of this problem with 98p relax to get 98p results)
+    /*         
+    vector<int> isLoosenedCapacity = {1,1,1,1,0,0,1,0,1,0,1,1,0,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1};
+    vector<int> isLoosenedDemand   = {0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,1,1,1,1,1,0,0};
+    */
+
+    // Used for 97p, input in this program to get in return the 96p (3 percent) relax
+/*     
+    vector<int> isLoosenedCapacity = {1,1,1,1,0,1,1,0,1,1,0,0,0,1,1,0,0,0,1,1,1,0,1,1,1,1,1,0,1,0};
+    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1};
+ */
+    
+    // used for 96p, gives LP relax of 97p
+     
+    vector<int> isLoosenedCapacity = {1,0,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,0,0,1,0,1,1,0,1,0,0,1,1,1};
+    vector<int> isLoosenedDemand   = {1,0,0,0,0,1,0,0,0,0,1,1,1,0,1,0,0,0,0,0,0,1,0,1,1,1,1,1,1,0};
+ 
+ //Used for 95p, LP relax of 96p
+/*     vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,0,0,1,0,0,1,0,1,0,1,0,1,1,0,1,1,0,0,1};
+    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1}; 
+*/
+
+
+
+        loosenCapAndDemand(isLoosenedCapacity, isLoosenedDemand, caseProblem);
 /*         for(long& demandRequirement : caseProblem.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
             demandRequirement *= 0.8; */
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
@@ -559,7 +605,8 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + ".csv";
+    // This gives the LP relaxation OF the #P, and this is used to tell us what the next increment needs to change
+    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "3P.csv";
     ofstream excel(filename); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
