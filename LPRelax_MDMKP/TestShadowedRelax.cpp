@@ -155,6 +155,25 @@ void loosenCapAndDemand(vector<int>& isLoosenedCapacity, vector<int>& isLoosened
     }
 }
 
+void loosenCapAndDemandByPercent(double percent, vector<int>& isLoosenedCapacity, vector<int>& isLoosenedDemand, problemSet& caseNum)
+{
+    int i{0};
+    for(long& capacityRHS : caseNum.knapsackCapacityVals) //modifying the demand requirements (loosening requirements)
+    {
+        if(isLoosenedCapacity[i])
+            capacityRHS *= 1 + percent; // demand decrease, capacity should increase. Was tested in increments of 10%
+        i++;
+    }
+
+    i = 0;
+    for(long& demandRHS : caseNum.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
+    {
+        if(isLoosenedDemand[i])
+            demandRHS *= 1 - percent;
+        i++;
+    }
+}
+
 void readAttributeOfMDMKP(ifstream& file, vector<vector<long>>& candidateCoefficientAtrributes, vector<long>& knapsackGoalVals, long candidateCount, long leConstraints, bool isConstraint)
 {
     long placeholder; 
@@ -215,31 +234,46 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
     /////////////////////////////////////// Shadowing relaxation approach, we gett the dual value and increase capacity, decrease demand
     for(auto caseNum : caseNums)
     {
-    /*   Shadow results for used for 99p   
+
+
+     // used for 99p   
     vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,1,0,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1};
     vector<int> isLoosenedDemand   = {1,1,0,1,0,1,1,1,0,0,1,0,1,1,1,0,0,0,0,0,1,0,1,1,1,1,1,1,0,1};
-    */
-    // Used for 98p
-    /*     
-    vector<int> isLoosenedCapacity = {1,1,1,1,0,0,1,0,1,0,1,1,0,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1};
-    vector<int> isLoosenedDemand   = {0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,1,1,1,1,1,0,0};
-    */
-    // used for 97p
-/* 
-    vector<int> isLoosenedCapacity = {1,1,1,1,0,1,1,0,1,1,0,0,0,1,1,0,0,0,1,1,1,0,1,1,1,1,1,0,1,0};
-    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1};
- */
-//Used for 96p
-/* 
-    vector<int> isLoosenedCapacity = {1,0,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,0,0,1,0,1,1,0,1,0,0,1,1,1};
-    vector<int> isLoosenedDemand   = {1,0,0,0,0,1,0,0,0,0,1,1,1,0,1,0,0,0,0,0,0,1,0,1,1,1,1,1,1,0};
-  */
- //Used for 95p
- 
-    vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,0,0,1,0,0,1,0,1,0,1,0,1,1,0,1,1,0,0,1};
-    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1};
+    loosenCapAndDemandByPercent(0.01, isLoosenedCapacity, isLoosenedDemand, caseNum);
 
-    loosenCapAndDemand(isLoosenedCapacity, isLoosenedDemand, caseNum);
+    
+    // Used for 98p  
+     isLoosenedCapacity = {1,1,1,1,0,0,1,0,1,0,1,1,0,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1};
+     isLoosenedDemand   = {0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,1,1,1,1,1,0,0};
+    loosenCapAndDemandByPercent(0.01, isLoosenedCapacity, isLoosenedDemand, caseNum);
+    
+
+
+///// 2 P and below work just fine, 97-95 must be redone
+
+
+
+
+
+    // used for 97p
+     isLoosenedCapacity = {0,1,1,0,0,1,0,0,1,1,1,0,0,0,1,0,0,0,0,1,0,0,1,1,1,1,0,0,1,1};
+     isLoosenedDemand   = {0,0,0,0,0,0,1,0,0,0,0,1,0,1,1,0,0,0,0,1,0,0,0,1,1,0,0,0,0,0};
+    loosenCapAndDemandByPercent(0.01, isLoosenedCapacity, isLoosenedDemand, caseNum);
+    
+
+/*     
+    //Used for 96p
+     isLoosenedCapacity = {0,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,1,0,0,1,0,1,0,0,1,0};
+     isLoosenedDemand   = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+    loosenCapAndDemandByPercent(0.01, isLoosenedCapacity, isLoosenedDemand, caseNum);
+     */
+/* 
+    //Used for 95p
+     isLoosenedCapacity = {0,1,0,0,1,1,0,1,0,1,0,0,1,0,0,0,1,1,0,0,1,0,0,0,0,0,0,0,0,0};
+     isLoosenedDemand   = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; 
+    loosenCapAndDemandByPercent(0.01, isLoosenedCapacity, isLoosenedDemand, caseNum);
+ */
+
  
     /////////////////////////
         // Note: possibly look into doing 4 percent again? like make another relaxed jsut to check
@@ -401,7 +435,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPCT7_B11C3_5P_result.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPCT7_B11C3_3P_result.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -440,3 +474,37 @@ int main()
  */
     return 0;
 }
+
+
+///////// RECURSIVE APPROACH ///////////
+    /*   Shadow results for used for 99p   
+    vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,1,0,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1};
+    vector<int> isLoosenedDemand   = {1,1,0,1,0,1,1,1,0,0,1,0,1,1,1,0,0,0,0,0,1,0,1,1,1,1,1,1,0,1};
+    */
+
+    // Used for 98p
+    /*     
+    vector<int> isLoosenedCapacity = {1,1,1,1,0,0,1,0,1,0,1,1,0,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1};
+    vector<int> isLoosenedDemand   = {0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,1,1,1,1,1,0,0};
+    */
+
+    // used for 97p
+/* 
+    vector<int> isLoosenedCapacity = {0,1,1,0,0,1,0,0,1,1,1,0,0,0,1,0,0,0,0,1,0,0,0,1,1,1,1,0,1,1};
+    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,0,0,0,0,1,0};
+ */
+//Used for 96p
+/* 
+    vector<int> isLoosenedCapacity = {0,0,1,1,0,0,1,0,1,0,0,1,0,1,0,1,1,0,1,0,1,0,1,0,0,1,0,1,0,0};
+    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0};
+  */
+
+ //Used for 95p
+/*  vector<int> isLoosenedCapacity = {1,1,0,0,1,1,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0,1,0,1,1,1,0,0,1,0};
+    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; 
+*/
+
+
+
+///////////////
+

@@ -8,6 +8,10 @@
 using namespace std;
 
 int CURRPROBLEM = 11;
+double doubleRelaxVal = 0.01;
+
+vector<vector<int>> isLoosenedCapacity = {};
+vector<vector<int>> isLoosenedDemand = {};
 //raw MDMK problems are stored as followed:
 /* 
     for both vector<vector<long>> candidateCapacityAttributes and candidateDemandAttributes:
@@ -354,7 +358,7 @@ void loosenCapAndDemand(vector<int>& isLoosenedCapacity, vector<int>& isLoosened
     for(long& capacityRHS : caseNum.knapsackCapacityVals) //modifying the demand requirements (loosening requirements)
     {
         if(isLoosenedCapacity[i])
-            capacityRHS *= 1.04; // demand decrease, capacity should increase. Was tested in increments of 10%
+            capacityRHS *= 1 + doubleRelaxVal; // demand decrease, capacity should increase. Was tested in increments of 10%
         i++;
     }
 
@@ -362,7 +366,7 @@ void loosenCapAndDemand(vector<int>& isLoosenedCapacity, vector<int>& isLoosened
     for(long& demandRHS : caseNum.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
     {
         if(isLoosenedDemand[i])
-            demandRHS *= 0.96;
+            demandRHS *= 1 - doubleRelaxVal;
         i++;
     }
 }
@@ -370,223 +374,134 @@ void loosenCapAndDemand(vector<int>& isLoosenedCapacity, vector<int>& isLoosened
 //note: by design, caseProblems should only hold problemSets of the same case, so you need a for loop with formatByCase() being used to evaluate all cases
 void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProblems, int caseCounter)
 {
-
-    
     int blockNum{1};
+
+
+        
     for(problemSet caseProblem : caseProblems)
     {
-    /*     Used for 99p LP relax of 100
-        vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,1,0,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1};
-        vector<int> isLoosenedDemand   = {1,1,0,1,0,1,1,1,0,0,1,0,1,1,1,0,0,0,0,0,1,0,1,1,1,1,1,1,0,1};
-    */
-    // Used for 98p (we use the output of this problem with 98p relax to get 98p results)
-    /*         
-    vector<int> isLoosenedCapacity = {1,1,1,1,0,0,1,0,1,0,1,1,0,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1};
-    vector<int> isLoosenedDemand   = {0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,1,1,1,1,1,0,0};
-    */
-
-    // Used for 97p, input in this program to get in return the 96p (3 percent) relax
-/*     
-    vector<int> isLoosenedCapacity = {1,1,1,1,0,1,1,0,1,1,0,0,0,1,1,0,0,0,1,1,1,0,1,1,1,1,1,0,1,0};
-    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1};
- */
-    
-    // used for 96p, gives LP relax of 97p
-     
-    vector<int> isLoosenedCapacity = {1,0,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,0,0,1,0,1,1,0,1,0,0,1,1,1};
-    vector<int> isLoosenedDemand   = {1,0,0,0,0,1,0,0,0,0,1,1,1,0,1,0,0,0,0,0,0,1,0,1,1,1,1,1,1,0};
- 
- //Used for 95p, LP relax of 96p
-/*     vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,0,0,1,0,0,1,0,1,0,1,0,1,1,0,1,1,0,0,1};
-    vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1}; 
-*/
-
-
-
-        loosenCapAndDemand(isLoosenedCapacity, isLoosenedDemand, caseProblem);
-/*         for(long& demandRequirement : caseProblem.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
-            demandRequirement *= 0.8; */
-        //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
         if(blockNum != CURRPROBLEM)
         {    
             blockNum++;
             continue;
         } 
-        vector<GRBLinExpr> demandConstr;
-        vector<GRBLinExpr> capacityConstr;
-        GRBLinExpr objective;
-        GRBModel model(env);
-        
-        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-        model.set(GRB_DoubleParam_TimeLimit, 600); //600 
-        vector<GRBVar> x; //variable for if we include / not include item in knapsack
-//////////////////// objective value definition ///////////////
-        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) 
-            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_CONTINUOUS)); 
-       
-        for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
-                objective += caseProblem.problemsByCase[0][i].value * x[i]; 
-        model.setObjective(objective, GRB_MAXIMIZE);
-//////////////////// capacity constraint ///////////////
-        for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) 
+
+        for(int i{0}; i < 6; i++)
         {
-            GRBLinExpr capacityExpr;
-            for(int e{0}; e < caseProblem.problemsByCase[0].size(); e++)
-                capacityExpr += caseProblem.problemsByCase[0][e].capacityVal[i] * x[e];
-            capacityConstr.push_back(capacityExpr);
-        }
-        for(int i{0}; i < capacityConstr.size(); i++)
-            model.addConstr(capacityConstr[i] <= caseProblem.knapsackCapacityVals[i] );
-       
-//////////////////// demand constraint ///////////////
-        for(int i{0}; i < caseProblem.problemsByCase[0][0].demandVal.size(); i++) //fixed one small error of including extra demands, as each problem case varies on demand amount
-        {
-            GRBLinExpr demandExpr;
-            for(int e{0}; e < caseProblem.problemsByCase[0].size(); e++)
-                demandExpr += caseProblem.problemsByCase[0][e].demandVal[i] * x[e];  
-            demandConstr.push_back(demandExpr);
-        }
-        for(int i{0}; i < demandConstr.size(); i++)
-            model.addConstr(demandConstr[i] >= caseProblem.knapsackDemandRequirementVals[i] );
-      
-        //model.set(GRB_IntParam_OutputFlag, 0); // allows suppressing of gurobi terminal output (useful for isolating messages on core approach with gurobi)
-        model.optimize();
-     
-        long long profit{0};
-
-        ///// Shadow values
-        auto constrs = model.getConstrs();
-        excel << ",";
-            for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++)
-                excel << i << ",";
-            excel << endl;
-
-/*             for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) // prints capacity RHS
-                excel << constrs[i].get(GRB_DoubleAttr_RHS) << ",";
-            excel << endl; */
-            excel << "Capacity" << ",";
-            for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) // prints capacity
-                excel << constrs[i].get(GRB_DoubleAttr_Pi) << ",";
-            excel << endl;
-
-      /*       for(int i{static_cast<int>(caseProblem.knapsackCapacityVals.size())}; i < caseProblem.knapsackDemandRequirementVals.size() + caseProblem.knapsackCapacityVals.size(); i++) // prints capacity
-                excel << constrs[i].get(GRB_DoubleAttr_RHS) << ",";  // prints demand RHS
-            excel << endl; */
-             excel << "Demand" << ",";
-            for(int i{static_cast<int>(caseProblem.knapsackCapacityVals.size())}; i < caseProblem.knapsackDemandRequirementVals.size() + caseProblem.knapsackCapacityVals.size(); i++) //print demand shadow vals
-                excel << constrs[i].get(GRB_DoubleAttr_Pi) << ",";
-            excel << endl;
-        ///
-
-        model.write("model.lp");
-        
-        //used to compare LP relaxed (linear relaxed problem) to the BIP (binary int problem) variant that is solved by the core problem method
-        /* if(model.get(GRB_IntAttr_SolCount) > 0)
-        {
-            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+            if(isLoosenedCapacity.size() != 0 && isLoosenedDemand.size() != 0) // Implements building previous problem 
             {
-                if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-                    profit += caseProblem.problemsByCase[0][i].value;
-            }    
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; //Note this relaxation makes this problem no longer an MIP, meaning there IS NO MIPGAP
-               
-            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
-            {
-                excel << i << ',';
-            }  
-            excel << endl;
-            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
-            {
-                excel << x[i].get(GRB_DoubleAttr_X) << ',';
-            }   
-            excel << endl;
-        }
-        else // case of infeasible solution (as the x[i].get() would throw an error if our model is infeasible)
-        {
-            profit = -1;
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
-        }
- */
-
-
-
-
-        if(blockNum == CURRPROBLEM) //DELETE, this is code for solution extraction
-            exit(EXIT_SUCCESS);
-        blockNum++;
-
-
-
-
-
-
-        // CORE PROBLEM CODE: //
-        //vector<double> solutionXVals = GRBToDoubleDecisionValues(x); //converts answer from gurobi into a from that can be altered by our core problem solver algorithm (whatever appraoch we use) below
-        //vector<double> coreXVals; // will hold what the answer to the core is (the core are the decimal candidates of solutionXVals)
-       /*  
-       for(int i{0}; i < x.size(); i++) // For every decision variable.. // isolates core decision variables in coreXVals
-        {
-            double decisionVal = x[i].get(GRB_DoubleAttr_X); //this is guaranteed as LP relaxation always ends in a feasible solution (if one exists)
-            if(decisionVal != 1 && decisionVal != 0) // if item is a core problem candidate (decimal value in decision variable)
-                coreXVals.push_back(decisionVal); //partly useless, but does make coreXVals the proper size 
-        } // Note that decision vals are pushed correlated to their order in the vector<GRBVar> x, so this is a way we can keep track of our solution 
-        I realized this code is not very useful as I reimpliment it in GRBToDoubleDecisionValues()*/
-
-        //problemSet coreProblem = extractCore(caseProblem, x); 
-        
-        /////////////////Core problem solution approaches /////////////////
-        // greedyCoreSolver(coreProblem, coreXVals); // code from greedy attempt
-        //excel << "B" << blockNum << "C"  << caseCounter << " ";
-        //coreXVals = gurobiOnCore(coreProblem, env, excel); // tries to solve core problem with gurobi fyi: it returns infeasible (showing the core cannot be solved with any approach)
-        ///////////////////////////////////////////////////////////////////
-
-        //transfers coreXVals to solutionXVals
-      /*   if(coreXVals.size() != 0) //can comment this out when using gurobiOnCore, not very useful for core problem as we ultimately learned from this project that the core is often infeasible no matter what
-        {
-            int traverseCoreX{0};
-            for(int i{0}; i < solutionXVals.size(); i++)
-            {
-                double target = solutionXVals[i];
-                if( (target != 0 && target != 1) )
-                {
-                    if(coreXVals[traverseCoreX] == 1)
-                        solutionXVals[i] = 1;
-                    traverseCoreX++;
-                }
-
+                for(int i{0}; i < isLoosenedCapacity.size(); i++)
+                    loosenCapAndDemand(isLoosenedCapacity[i], isLoosenedDemand[i], caseProblem);
             }
-            excel << isFeasible(caseProblem, solutionXVals) << "\n";  *///if the core was able to be made into a solution,
-            // then isfeasible() would be used to test if solving the core made the problem as a whole feasible
-        //}
 
-        /* 
-        if(model.get(GRB_IntAttr_SolCount) > 0)
-        {
-            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
-            {
-                if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-                    profit += caseProblem.problemsByCase[0][i].value;
-            }    
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; //Note this relaxation makes this problem no longer an MIP, meaning there IS NO MIPGAP
-               
-            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
-            {
-                excel << i << ',';
-            }  
-            excel << endl;
-            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
-            {
-                excel << x[i].get(GRB_DoubleAttr_X) << ',';
-            }   
-            excel << endl;
-        }
-        else // case of infeasible solution (as the x[i].get() would throw an error if our model is infeasible)
-        {
-            profit = -1;
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
-        }
-             */
+
+            //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
         
+            vector<GRBLinExpr> demandConstr;
+            vector<GRBLinExpr> capacityConstr;
+            GRBLinExpr objective;
+            GRBModel model(env);
+            
+            model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
+            model.set(GRB_DoubleParam_TimeLimit, 600); //600 
+            vector<GRBVar> x; //variable for if we include / not include item in knapsack
+    //////////////////// objective value definition ///////////////
+            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++) 
+                x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_CONTINUOUS)); 
+        
+            for(int i{0}; i < caseProblem.problemsByCase[0].size(); i++)
+                    objective += caseProblem.problemsByCase[0][i].value * x[i]; 
+            model.setObjective(objective, GRB_MAXIMIZE);
+    //////////////////// capacity constraint ///////////////
+            for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) 
+            {
+                GRBLinExpr capacityExpr;
+                for(int e{0}; e < caseProblem.problemsByCase[0].size(); e++)
+                    capacityExpr += caseProblem.problemsByCase[0][e].capacityVal[i] * x[e];
+                capacityConstr.push_back(capacityExpr);
+            }
+            for(int i{0}; i < capacityConstr.size(); i++)
+                model.addConstr(capacityConstr[i] <= caseProblem.knapsackCapacityVals[i] );
+        
+    //////////////////// demand constraint ///////////////
+            for(int i{0}; i < caseProblem.problemsByCase[0][0].demandVal.size(); i++) //fixed one small error of including extra demands, as each problem case varies on demand amount
+            {
+                GRBLinExpr demandExpr;
+                for(int e{0}; e < caseProblem.problemsByCase[0].size(); e++)
+                    demandExpr += caseProblem.problemsByCase[0][e].demandVal[i] * x[e];  
+                demandConstr.push_back(demandExpr);
+            }
+            for(int i{0}; i < demandConstr.size(); i++)
+                model.addConstr(demandConstr[i] >= caseProblem.knapsackDemandRequirementVals[i] );
+        
+            //model.set(GRB_IntParam_OutputFlag, 0); // allows suppressing of gurobi terminal output (useful for isolating messages on core approach with gurobi)
+            model.optimize();
+        
+            long long profit{0};
+
+            ///// Shadow values
+            //isLoosenedCapacity.clear();
+            //isLoosenedDemand.clear();
+            vector<int> newLoosenedCapacity;
+            vector<int> newLoosenedDemand;
+            auto constrs = model.getConstrs();
+            excel << "CURR RELAX: " + (to_string(doubleRelaxVal * isLoosenedCapacity.size())) << ",";
+                for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++)
+                    excel << i << ",";
+                excel << endl;
+
+    /*             for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) // prints capacity RHS
+                    excel << constrs[i].get(GRB_DoubleAttr_RHS) << ",";
+                excel << endl; */
+                excel << "Capacity" << ",";
+                for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) // prints capacity
+                {
+                    double d = constrs[i].get(GRB_DoubleAttr_Pi);
+                    //excel << d << ",";
+                    if(d != 0)
+                    {
+                        excel << 1 << ",";
+                        newLoosenedCapacity.push_back(1);
+                    }
+                    else
+                    {
+                        excel << 0 << ",";
+                        newLoosenedCapacity.push_back(0);
+                    }
+                }
+                excel << endl;
+
+        /*       for(int i{static_cast<int>(caseProblem.knapsackCapacityVals.size())}; i < caseProblem.knapsackDemandRequirementVals.size() + caseProblem.knapsackCapacityVals.size(); i++) // prints capacity
+                    excel << constrs[i].get(GRB_DoubleAttr_RHS) << ",";  // prints demand RHS
+                excel << endl; */
+                excel << "Demand" << ",";
+                for(int i{static_cast<int>(caseProblem.knapsackCapacityVals.size())}; i < caseProblem.knapsackDemandRequirementVals.size() + caseProblem.knapsackCapacityVals.size(); i++) //print demand shadow vals
+                {
+                    double d = constrs[i].get(GRB_DoubleAttr_Pi);
+                    //excel << d << ",";
+                    if(d != 0)
+                    {
+                        excel << 1 << ",";
+                        newLoosenedDemand.push_back(1);
+                    }
+                    else
+                    {
+                        excel << 0 << ",";
+                        newLoosenedDemand.push_back(0);
+                    }
+                }
+                excel << endl << endl;
+            ///
+            isLoosenedCapacity.push_back(newLoosenedCapacity);
+            isLoosenedDemand.push_back(newLoosenedDemand);
+            model.write("model.lp");
+            //doubleRelaxVal+=0.01;
+                /* if(blockNum == CURRPROBLEM) //DELETE, this is code for solution extraction
+                exit(EXIT_SUCCESS);  */
+            
+        }
+        blockNum++;
+    // blockNum++;
     }
 }
 
@@ -606,7 +521,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 int main()
 {
     // This gives the LP relaxation OF the #P, and this is used to tell us what the next increment needs to change
-    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "3P.csv";
+    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "_ALLP's.csv";
     ofstream excel(filename); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
@@ -645,3 +560,30 @@ int main()
  */
     return 0;
 }
+
+
+ /*     Used for 99p LP relax of 100
+            vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,1,0,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1};
+            vector<int> isLoosenedDemand   = {1,1,0,1,0,1,1,1,0,0,1,0,1,1,1,0,0,0,0,0,1,0,1,1,1,1,1,1,0,1};
+        */
+        // Used for 98p (we use the output of this problem with 98p relax to get 98p results)
+        /*         
+        vector<int> isLoosenedCapacity = {1,1,1,1,0,0,1,0,1,0,1,1,0,1,1,1,0,0,1,1,0,1,1,0,1,1,1,1,1,1};
+        vector<int> isLoosenedDemand   = {0,0,0,1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,0,1,1,1,1,1,0,0};
+        */
+
+        // Used for 97p, input in this program to get in return the 96p (3 percent) relax
+    /*     
+        vector<int> isLoosenedCapacity = {1,1,1,1,0,1,1,0,1,1,0,0,0,1,1,0,0,0,1,1,1,0,1,1,1,1,1,0,1,0};
+        vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1};
+    */
+        
+        // used for 96p, gives LP relax of 97p
+        /* 
+        vector<int> isLoosenedCapacity = {1,0,0,0,0,0,0,0,1,0,1,1,0,0,1,1,0,0,0,1,0,1,1,0,1,0,0,1,1,1};
+        vector<int> isLoosenedDemand   = {1,0,0,0,0,1,0,0,0,0,1,1,1,0,1,0,0,0,0,0,0,1,0,1,1,1,1,1,1,0};
+    */
+    //Used for 95p, LP relax of 96p
+    /*     vector<int> isLoosenedCapacity = {1,0,1,1,0,1,1,0,1,0,0,0,0,1,0,0,1,0,1,0,1,0,1,1,0,1,1,0,0,1};
+        vector<int> isLoosenedDemand   = {0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1}; 
+    */
