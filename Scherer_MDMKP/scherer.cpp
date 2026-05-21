@@ -132,7 +132,7 @@ vector<MDMKProblem> readSchererMDMKP(string fileName)
 ///////////////////////////////////
 
 
-vector<vector<int>> runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& problems)
+vector<vector<int>> runGurobiMDMKPSchererSSIT(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& problems)
 {
     int blockNum{1};
     vector<vector<int>> sols;
@@ -193,6 +193,12 @@ vector<vector<int>> runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<M
         // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
          model.optimize();
 
+         //ssit exlcusive code
+         double timePhase1 = model.get(GRB_DoubleAttr_Runtime);
+         model.set(GRB_DoubleParam_MIPGap, 0.001);
+
+         model.optimize();
+        /////////////////////////////////////////
 
         //Stores answer in sol
         vector<int> sol;
@@ -211,13 +217,13 @@ vector<vector<int>> runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<M
                 if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
                     profit += problem.candidates[i].value;
             }        
-            excel << setprecision(15) << to_string(blockNum) + "_" + to_string(problem.candidates.size()) + "_" + to_string(problem.knapsackCapacityVals.size()) + "_" + to_string(problem.knapsackDemandRequirementVals.size()) << "," << problem.bestObjVal << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+            excel << setprecision(15) << to_string(blockNum) + "_" + to_string(problem.candidates.size()) + "_" + to_string(problem.knapsackCapacityVals.size()) + "_" + to_string(problem.knapsackDemandRequirementVals.size()) << "," << problem.bestObjVal << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) + timePhase1 << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
       
         }
         else // case of infeasible solution 
         {
             profit = -1;
-            excel << setprecision(15) << to_string(blockNum) + "_" + to_string(problem.candidates.size()) + "_" + to_string(problem.knapsackCapacityVals.size()) + "_" + to_string(problem.knapsackDemandRequirementVals.size()) << ","<< problem.bestObjVal << ","  <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+            excel << setprecision(15) << to_string(blockNum) + "_" + to_string(problem.candidates.size()) + "_" + to_string(problem.knapsackCapacityVals.size()) + "_" + to_string(problem.knapsackDemandRequirementVals.size()) << ","<< problem.bestObjVal << ","  <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) + timePhase1 << endl; 
         }
         blockNum++;
 
@@ -226,7 +232,7 @@ vector<vector<int>> runGurobiMDMKPScherer(GRBEnv& env, ofstream& excel, vector<M
 
     return sols;
 }
-
+/* 
 void runGurobiMDMKPSchererWarmSSIT(GRBEnv& env, ofstream& excel, vector<MDMKProblem>& problems)
 {
     vector<vector<int>> warmSols = runGurobiMDMKPScherer(env, excel, problems);
@@ -331,7 +337,7 @@ void runGurobiMDMKPSchererWarmSSIT(GRBEnv& env, ofstream& excel, vector<MDMKProb
 
 
 
-
+ */
 
 
 
@@ -398,7 +404,7 @@ int main()
 
     vector<MDMKProblem> problems = readSchererMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/Scherer_MDMKP/MDMKP_Instances_Scherer.txt");
     //storeProblemType(problems, excel);
-    runGurobiMDMKPSchererWarmSSIT(env, excel, problems);
+    runGurobiMDMKPSchererSSIT(env, excel, problems);
     excel.close();
 
     return 0;

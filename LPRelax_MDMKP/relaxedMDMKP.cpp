@@ -7,7 +7,7 @@
 #include <algorithm>
 using namespace std;
 
-int CURRPROBLEM = 11;
+int CURRPROBLEM = 6;
 double doubleRelaxVal = 0.01;
 
 vector<vector<int>> isLoosenedCapacity = {};
@@ -521,7 +521,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 int main()
 {
     // This gives the LP relaxation OF the #P, and this is used to tell us what the next increment needs to change
-    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "_ALLP's.csv";
+    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "C3_ALLP's.csv";
     ofstream excel(filename); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
