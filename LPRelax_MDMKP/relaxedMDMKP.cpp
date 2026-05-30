@@ -7,7 +7,7 @@
 #include <algorithm>
 using namespace std;
 
-int CURRPROBLEM = 6;
+int CURRPROBLEM = 1;
 double doubleRelaxVal = 0.01;
 
 vector<vector<int>> isLoosenedCapacity = {};
@@ -292,7 +292,7 @@ bool isGreedyAddAllowed(problemSet& coreProblem, vector<long>& currCapacityVals,
         }
     }
  }
-
+/* 
  //My thought for this is what if we shorten the work gurobi has to do by first doing the relaxed version,
  // and then using the smaller core formed from this as another input for the unrelaxed problem
 
@@ -339,16 +339,15 @@ vector<double> gurobiOnCore(problemSet& coreProblem, GRBEnv& env, ofstream& exce
         model.optimize();
 
          //model.write("testModel.lp");
-/*         if(model.get(GRB_IntAttr_SolCount) == 0)
+        if(model.get(GRB_IntAttr_SolCount) == 0)
         {
             excel << "failed\n";
             return vector<double>(); //case of a failed solution
         }
-        excel << "passed";  */
+        excel << "passed";  
         return GRBToDoubleDecisionValues(x); //returns core solution if found
-
 }
-
+ */
 
 
 
@@ -375,9 +374,6 @@ void loosenCapAndDemand(vector<int>& isLoosenedCapacity, vector<int>& isLoosened
 void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProblems, int caseCounter)
 {
     int blockNum{1};
-
-
-        
     for(problemSet caseProblem : caseProblems)
     {
         if(blockNum != CURRPROBLEM)
@@ -521,7 +517,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 int main()
 {
     // This gives the LP relaxation OF the #P, and this is used to tell us what the next increment needs to change
-    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "C3_ALLP's.csv";
+    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "C6_ALLP's.csv";
     ofstream excel(filename); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
@@ -545,21 +541,16 @@ int main()
                                              // but note that i is one behind what you expect. EX: case 1 is i = 0, case 2 is i = 1, and so on.
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
- 
-
+   int caseNum = 6;
  // In this program my goal is to test the LP relaxation approach on the hardest cases, case 3 and 6, and to see if its a valid or invalid approach for a sample size of n = 100
-    vector<problemSet> case3Set; // case 3 
-    formatCase(2, case3Set, problemSets); //yes, an input of 2 means case 3.
-    runGurobiMDMKP(env, excel, case3Set, 2);
+    vector<problemSet> caseSet; // case 3 
+    formatCase(caseNum - 1, caseSet, problemSets); //yes, an input of 2 means case 3.
+    runGurobiMDMKP(env, excel, caseSet, caseNum - 1);
  
-/* 
-    //case 6
-    vector<problemSet> case6Set; // case 6
-    formatCase(5, case6Set, problemSets);
-    runGurobiMDMKP(env, excel, case6Set, 5);
- */
     return 0;
 }
+
+
 
 
  /*     Used for 99p LP relax of 100
