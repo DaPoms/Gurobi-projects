@@ -7,7 +7,7 @@
 #include <algorithm>
 using namespace std;
 
-int CURRPROBLEM = 1;
+int CURRPROBLEM = 2;
 double doubleRelaxVal = 0.01;
 
 vector<vector<int>> isLoosenedCapacity = {};
@@ -371,7 +371,7 @@ void loosenCapAndDemand(vector<int>& isLoosenedCapacity, vector<int>& isLoosened
 }
 
 //note: by design, caseProblems should only hold problemSets of the same case, so you need a for loop with formatByCase() being used to evaluate all cases
-void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProblems, int caseCounter)
+void runGurobiMDMKPLPRELAX(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProblems, int caseCounter)
 {
     int blockNum{1};
     for(problemSet caseProblem : caseProblems)
@@ -382,7 +382,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
             continue;
         } 
 
-        for(int i{0}; i < 6; i++)
+        for(int i{0}; i < 5; i++)
         {
             if(isLoosenedCapacity.size() != 0 && isLoosenedDemand.size() != 0) // Implements building previous problem 
             {
@@ -441,15 +441,15 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
             vector<int> newLoosenedCapacity;
             vector<int> newLoosenedDemand;
             auto constrs = model.getConstrs();
-            excel << "CURR RELAX: " + (to_string(doubleRelaxVal * isLoosenedCapacity.size())) << ",";
-                for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++)
-                    excel << i << ",";
+            //excel << "CURR RELAX: " + (to_string(doubleRelaxVal * isLoosenedCapacity.size())) << ",";
+                //for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++)
+                    //excel << i << ",";
                 excel << endl;
 
     /*             for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) // prints capacity RHS
                     excel << constrs[i].get(GRB_DoubleAttr_RHS) << ",";
                 excel << endl; */
-                excel << "Capacity" << ",";
+                excel << "isLoosenedCapacity = {";
                 for(int i{0}; i < caseProblem.knapsackCapacityVals.size(); i++) // prints capacity
                 {
                     double d = constrs[i].get(GRB_DoubleAttr_Pi);
@@ -465,12 +465,12 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
                         newLoosenedCapacity.push_back(0);
                     }
                 }
-                excel << endl;
+                excel << "};" << endl;
 
         /*       for(int i{static_cast<int>(caseProblem.knapsackCapacityVals.size())}; i < caseProblem.knapsackDemandRequirementVals.size() + caseProblem.knapsackCapacityVals.size(); i++) // prints capacity
                     excel << constrs[i].get(GRB_DoubleAttr_RHS) << ",";  // prints demand RHS
                 excel << endl; */
-                excel << "Demand" << ",";
+                excel << "isLoosenedDemand = {";
                 for(int i{static_cast<int>(caseProblem.knapsackCapacityVals.size())}; i < caseProblem.knapsackDemandRequirementVals.size() + caseProblem.knapsackCapacityVals.size(); i++) //print demand shadow vals
                 {
                     double d = constrs[i].get(GRB_DoubleAttr_Pi);
@@ -486,7 +486,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseProble
                         newLoosenedDemand.push_back(0);
                     }
                 }
-                excel << endl << endl;
+                excel << "};" << endl << endl;
             ///
             isLoosenedCapacity.push_back(newLoosenedCapacity);
             isLoosenedDemand.push_back(newLoosenedDemand);
@@ -517,7 +517,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 int main()
 {
     // This gives the LP relaxation OF the #P, and this is used to tell us what the next increment needs to change
-    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "C6_ALLP's.csv";
+    string filename = "MDMKPct7LP_RELAX_SHADOWVALS_B" + to_string(CURRPROBLEM) + "C3_ALLP's.csv";
     ofstream excel(filename); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << '\n';
 
@@ -541,11 +541,11 @@ int main()
                                              // but note that i is one behind what you expect. EX: case 1 is i = 0, case 2 is i = 1, and so on.
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
-   int caseNum = 6;
+   int caseNum = 3;
  // In this program my goal is to test the LP relaxation approach on the hardest cases, case 3 and 6, and to see if its a valid or invalid approach for a sample size of n = 100
     vector<problemSet> caseSet; // case 3 
     formatCase(caseNum - 1, caseSet, problemSets); //yes, an input of 2 means case 3.
-    runGurobiMDMKP(env, excel, caseSet, caseNum - 1);
+    runGurobiMDMKPLPRELAX(env, excel, caseSet, caseNum - 1);
  
     return 0;
 }

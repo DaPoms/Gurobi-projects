@@ -203,12 +203,12 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
 
 
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
- /*        if(blockNum != 14)
+   /*      if(blockNum != 1)
         {    
             blockNum++;
             continue;
-        } */
-
+        }
+ */
 
 
 
@@ -264,20 +264,20 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
 
 
        // ///////////////////// EXPERIMENT DELETE ERIGGIRJREGJGJIEIJ  
-       model.set(GRB_IntParam_TuneResults, 2); // Must say 2 as the first is the baseline, 2nd is the best case
+/*        model.set(GRB_IntParam_TuneResults, 2); // Must say 2 as the first is the baseline, 2nd is the best case
         model.set(GRB_DoubleParam_TuneTimeLimit,36000);
         model.tune();
         int resultcount = model.get(GRB_IntAttr_TuneResultCount);
         model.getTuneResult(1); //0 is also the baseline, 1 is for best case
         model.write("tune.prm");
+         */
         
-        exit(EXIT_SUCCESS);
        
         //////////////////////////// 
         
 
         // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
-       /*  model.optimize();
+        model.optimize();
 
         long long profit{0};
 
@@ -292,7 +292,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
                     profit += caseNum.problemsByCase[0][i].value;
             }        
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-            /* for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+           /*  for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
                 excel << i << ',';
             }  
@@ -301,7 +301,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             {
                 excel << x[i].get(GRB_DoubleAttr_X) << ',';
             }   
-            excel << endl;   THEREWAS A COMMENTBLOCK HEREEEEEE
+            excel << endl;   THEREWAS A COMMENTBLOCK HEREEEEEE */
         }
         else // case of infeasible solution 
         {
@@ -310,9 +310,9 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         }
         blockNum++;
 
+        exit(EXIT_SUCCESS);
 
 
- */
 
 
 /* 
@@ -343,7 +343,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7_3600s_n100_30c_30dcase3+6.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7B1C3.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -354,7 +354,7 @@ int main()
 
     //reading 
    vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/datasetct9.txt", MDMKRawProblems);
+    readMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/datac7.txt", MDMKRawProblems);
     //readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
     vector<problemSet> problemSets;
