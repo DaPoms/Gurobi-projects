@@ -223,7 +223,8 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
-        model.set(GRB_DoubleParam_TimeLimit, 600); 
+        model.set(GRB_DoubleParam_TimeLimit, 0.001); 
+        //model.set(GRB_DoubleParam_TimeLimit, 600); 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
@@ -283,7 +284,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
 
         
         
-        
+    /*     
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
@@ -292,7 +293,8 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
                     profit += caseNum.problemsByCase[0][i].value;
             }        
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-           /*  for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
+           // For showing decision variables
+              for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
                 excel << i << ',';
             }  
@@ -301,16 +303,31 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             {
                 excel << x[i].get(GRB_DoubleAttr_X) << ',';
             }   
-            excel << endl;   THEREWAS A COMMENTBLOCK HEREEEEEE */
+            excel << endl;  
+            
+           //
+
         }
         else // case of infeasible solution 
         {
             profit = -1;
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
+         */
+
+        // For printing display + capaacity constraints
+        excel << "B" + to_string(blockNum) << endl;
+        excel << "Capacity,";
+        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++)
+            excel << caseNum.knapsackCapacityVals[i] << ",";
+        excel << endl;
+        excel << "Demand,";
+        for(int i{0}; i < caseNum.knapsackDemandRequirementVals.size(); i++)
+            excel << caseNum.knapsackDemandRequirementVals[i] << ",";
+        excel << endl;
         blockNum++;
 
-        exit(EXIT_SUCCESS);
+        //exit(EXIT_SUCCESS);
 
 
 
@@ -343,7 +360,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7B1C3.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7Case3+6AllCapacity+Demand.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -367,18 +384,12 @@ int main()
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
 
-    int caseNum = 3; //just a fool proof way for me to test specific cases 
+    int caseNum = 6; //just a fool proof way for me to test specific cases 
     //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
 
     vector<problemSet> caseSet;
     formatCase(caseNum - 1, caseSet, problemSets);
     runGurobiMDMKP(env, excel, caseSet, caseNum - 1);
 
-    /* caseNum = 6; //just a fool proof way for me to test specific cases 
-    //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
-    caseSet.clear();
-    formatCase(caseNum - 1, caseSet, problemSets);
-    runGurobiMDMKP(env, excel, caseSet, caseNum - 1);
- */
     return 0;
 }
