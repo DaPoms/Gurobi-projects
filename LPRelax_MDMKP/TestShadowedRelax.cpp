@@ -345,6 +345,7 @@ void runGurobiMDMKPLPRELAX(GRBEnv& env, vector<problemSet>& caseProblems, int ca
             ////////// New code for outputting shadow value decisions (!= 0 shadow value means to relax the constraint in the next relaxation)
             // Note that while a 4% shadow value decision is included in the results, they were never used as the 4% decision would be used for 
             // the 5% relaxation of a given problem. I instead include it as a way to analyze what the remaining "limiting" constraints are at 4% with further analysis
+           /*  
             excel << "B" + to_string(blockNumTarget) + ": " + to_string(a) + "%" << endl;
             excel << "Capacity,";
             for(int i{0}; i < newLoosenedCapacity.size(); i++)
@@ -354,7 +355,7 @@ void runGurobiMDMKPLPRELAX(GRBEnv& env, vector<problemSet>& caseProblems, int ca
             for(int i{0}; i < newLoosenedDemand.size(); i++)
                 excel << newLoosenedDemand[i] << ",";
             excel << endl;
-            
+             */
             ///////////
             isLoosenedCapacity.push_back(newLoosenedCapacity);
             isLoosenedDemand.push_back(newLoosenedDemand);
@@ -381,6 +382,21 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
     for(auto caseNum : caseNums)
     {
         runGurobiMDMKPLPRELAX(env, caseNums, caseCounter, blockNum, excel); //Collects all LP Relaxations from 0-3% for use for solving 1-4% relaxation problems
+        
+
+        //// Writes the base RHS of the problem before applying relaxations
+        excel << "B" + to_string(blockNum) << "C" << (caseCounter + 1) << "_0" << endl;
+        excel << "Capacity,";
+        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++)
+            excel << caseNum.knapsackCapacityVals[i] << ",";
+        excel << endl;
+        excel << "Demand,";
+        for(int i{0}; i < caseNum.knapsackDemandRequirementVals.size(); i++)
+            excel << caseNum.knapsackDemandRequirementVals[i] << ",";
+        excel << endl;
+      
+        ////////////
+
         /* if(blockNum != BLOCKNUMTARGET)
         {    
             blockNum++;
@@ -442,12 +458,26 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         double firstOptTime = model.get(GRB_DoubleAttr_Runtime);
         //model.write("testModel.lp");
 
+
+        ////////// For saving RHS values for each relaxation
+        excel << "B" + to_string(blockNum) << "C" << (caseCounter + 1) << "_" << p + 1 << endl;
+        excel << "Capacity,";
+        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++)
+            excel << caseNum.knapsackCapacityVals[i] << ",";
+        excel << endl;
+        excel << "Demand,";
+        for(int i{0}; i < caseNum.knapsackDemandRequirementVals.size(); i++)
+            excel << caseNum.knapsackDemandRequirementVals[i] << ",";
+        excel << endl;
+        ////////////////////////////////////////////////////
+
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             model.set(GRB_DoubleParam_TimeLimit, 3600 - model.get(GRB_DoubleAttr_Runtime)); 
             //model.set(GRB_DoubleParam_TimeLimit, 1); 
             model.optimize();
         }
+        /* // For displaying the results for solving the problem
         else
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "_" << p + 1 << "," << "FAIL" << endl;
         
@@ -459,7 +489,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
                     profit += caseNum.problemsByCase[0][i].value;
             
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "_" << p + 1 << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) + firstOptTime << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-        }
+        } */
     }
         blockNum++;
         isLoosenedCapacity.clear();
@@ -467,6 +497,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         
     }
 }
+
 
 //Stores all the problems for 1 of the 6 cases in the caseSet vector
 void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& problemSets) //caseSet should be empty! Holds the answer
@@ -484,7 +515,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPCT7_ALL_C6_resultsWithShadowVals.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPCT7_ALL_C6_RHS_BY_PERCENT.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
 
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
