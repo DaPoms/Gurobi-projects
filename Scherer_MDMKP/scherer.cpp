@@ -155,9 +155,9 @@ vector<vector<int>> runGurobiMDMKPSchererSSIT(GRBEnv& env, ofstream& excel, vect
         
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  
-        model.set(GRB_DoubleParam_TimeLimit, 3600); 
+        model.set(GRB_DoubleParam_TimeLimit, 7200); 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
-        model.set(GRB_IntParam_MIPFocus, 2);
+        //model.set(GRB_IntParam_MIPFocus, 2);
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < problem.candidates.size(); i++) 
             x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
@@ -193,11 +193,12 @@ vector<vector<int>> runGurobiMDMKPSchererSSIT(GRBEnv& env, ofstream& excel, vect
         // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
          model.optimize();
 
-         //ssit exlcusive code
-         double timePhase1 = model.get(GRB_DoubleAttr_Runtime);
-         model.set(GRB_DoubleParam_MIPGap, 0.001);
+         //ssit exlcusive code////////////////////
+         double timePhase1 = 0; // delete
+         //double timePhase1 = model.get(GRB_DoubleAttr_Runtime);
+         //model.set(GRB_DoubleParam_MIPGap, 0.001);
 
-         model.optimize();
+         //model.optimize();
         /////////////////////////////////////////
 
         //Stores answer in sol
@@ -393,7 +394,7 @@ void storeProblemType(const vector<MDMKProblem>& problems, ofstream& excel)
 
 int main()
 {
-    ofstream excel("MDMKP_SchererHardestproblemsMipfocus2.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKP_SchererHardestproblems7200TaKE2NORMAL.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Best known Obj" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << endl;
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
