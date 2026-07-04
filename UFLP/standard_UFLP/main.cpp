@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <iomanip>
 using namespace std;
 
 
@@ -98,7 +99,6 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
     // constraint for validating that only open facilities can service customers (as in those with yi = 1)
     for(int f{0}; f < UFLProblem.facilityCount; f++) 
     {
-         
         for(int i{0}; i < UFLProblem.customerCount; i++) 
             model.addConstr(x[i][f] <= y[f]);
     }
@@ -117,12 +117,12 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
                     profit += caseNum.problemsByCase[0][i].value;
             }      */   
             //excel << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-            excel << "," <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+            excel << "," << std::setprecision(4) << std::fixed <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
         }
         else // case of infeasible solution 
         {
             //profit = -1;
-            excel <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+            excel <<  -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         } 
 }
 
