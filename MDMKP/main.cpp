@@ -203,27 +203,19 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
 
 
         //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
-   /*      if(blockNum != 1)
+        if(blockNum != 6)
         {    
             blockNum++;
             continue;
         }
- */
-
-
-
 
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
-
-        
         GRBModel model(env);
         
-        
-        
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
-        model.set(GRB_DoubleParam_TimeLimit, 0.001); 
+        model.set(GRB_DoubleParam_TimeLimit, 1200); 
         //model.set(GRB_DoubleParam_TimeLimit, 600); 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
@@ -253,8 +245,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
             {
                     //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                
+                    demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0
             }
             demandConstr.push_back(demandExpr);
         }
@@ -265,6 +256,17 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
 
 
        // ///////////////////// EXPERIMENT DELETE ERIGGIRJREGJGJIEIJ  
+       // This one is for setting a constraint for a minimum obj val 
+
+/*        GRBLinExpr minObjVal;
+       for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+            {
+                    //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+                    minObjVal += caseNum.problemsByCase[0][e].value * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0
+            }
+            model.addConstr(minObjVal >= 20085);
+ */
+            //////
 /*        model.set(GRB_IntParam_TuneResults, 2); // Must say 2 as the first is the baseline, 2nd is the best case
         model.set(GRB_DoubleParam_TuneTimeLimit,36000);
         model.tune();
@@ -284,7 +286,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
 
         
         
-    /*     
+        
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
@@ -313,10 +315,10 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
             profit = -1;
             excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         }
-         */
+        
 
         // For printing display + capaacity constraints
-        excel << "B" + to_string(blockNum) << endl;
+/*         excel << "B" + to_string(blockNum) << endl;
         excel << "Capacity,";
         for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++)
             excel << caseNum.knapsackCapacityVals[i] << ",";
@@ -324,7 +326,7 @@ void runGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, 
         excel << "Demand,";
         for(int i{0}; i < caseNum.knapsackDemandRequirementVals.size(); i++)
             excel << caseNum.knapsackDemandRequirementVals[i] << ",";
-        excel << endl;
+        excel << endl; */
         blockNum++;
 
         //exit(EXIT_SUCCESS);
@@ -360,7 +362,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7Case3+6AllCapacity+Demand.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7Case1P6minimumObjValTest.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -384,7 +386,7 @@ int main()
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
 
-    int caseNum = 6; //just a fool proof way for me to test specific cases 
+    int caseNum = 1; //just a fool proof way for me to test specific cases 
     //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
 
     vector<problemSet> caseSet;
