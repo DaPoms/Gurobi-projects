@@ -5,7 +5,9 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <filesystem>
 using namespace std;
+namespace fs = std::filesystem;
 
 
 /* 
@@ -90,7 +92,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
             satisfactionExpr += x[i][f]; //note var "aij" is not included in beasley's version (all warehouses can satisfy any given customer), but likely this will have to be added here in the future
         try{
          model.addConstr(satisfactionExpr == 1);
-        }catch(GRBException e)
+        } catch(GRBException e)
         {
             cout << e.getMessage();
         }
@@ -103,19 +105,15 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
             model.addConstr(x[i][f] <= y[f]);
     }
 
-        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  ADD BACK ERIOJERIJGERJOGERJIOGERIOGREJIOGERJIOGERJIORJIOERGJIOERGERJIEGJI
-        model.set(GRB_DoubleParam_TimeLimit, 5); 
+        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  
+        model.set(GRB_DoubleParam_TimeLimit, 3600); 
 
+        model.read("cadizFineTune.prm");
         model.optimize();
-
         //long long profit{0};
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
-          /*   for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-            {
-                if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-                    profit += caseNum.problemsByCase[0][i].value;
-            }      */   
+     
             //excel << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
             excel << "," << std::setprecision(4) << std::fixed <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
         }
@@ -128,7 +126,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
 
 int main()
 {
-    ofstream excel("ULFP.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -137,12 +135,15 @@ int main()
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
     env.start();
 
-    //reading 
-   UFLPInstance UFLP;
-    readUFLP("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/standard_UFLP/problem_sets_(from_other_people)/cap71.txt", UFLP);
-    //readMDMKP("mdmkp_ct8.txt", MDMKRawProblems);
-
-    runGurobiUFLP(env, excel, UFLP);
+    //reading + solving
+    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/UFLP/standard_UFLP/problem_sets_(from_other_people)/Cadiz_1000-2000_MT1";
+    for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
+    {
+        UFLPInstance UFLP;
+        readUFLP(problemPath.path().string(), UFLP);
+        excel << problemPath.path().filename().string();
+        runGurobiUFLP(env, excel, UFLP);
+    }
 
     return 0;
 }
