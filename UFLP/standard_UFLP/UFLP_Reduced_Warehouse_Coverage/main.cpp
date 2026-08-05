@@ -6,12 +6,19 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <random> // for randomizing shuffle()
 using namespace std;
 namespace fs = std::filesystem;
 
 
+double COVERAGE_PROPORTION = 0.25;
+//int fixedShuffleSeed = 172;
+
+
 /* 
     This program models the uncapacitated facility location problem for use with Gurobi
+    This is for the Reduced warehouse coverage version, which involves adding the constraint that customers cannot
+    be serviced by just ANY warehouse to achieve there demand, rather a given percentage (that isn't 100%) can. (This test is for 75%, 50%, and 25% coverage)
 */
 
 struct UFLPInstance
@@ -103,30 +110,49 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
             model.addConstr(x[i][f] <= y[f]);
     }
 
+
+    ///// NEW constraint for a given customer, which warehouses can satisfy a given customer
+    std::random_device rd; // random_device generates a random int that fits within 32 bits, more random than using the system clock
+    unsigned int random_Seed = rd(); //unsigned required to fit larger size
+    mt19937 generator(random_Seed);
+    int canServiceCount = UFLProblem.facilityCount * COVERAGE_PROPORTION; // amount of warehouses that CAN service a given custonmer
+    for(int c{0}; c < UFLProblem.customerCount; c++)
+    {
+        vector<bool> canService(UFLProblem.facilityCount, false);
+        for(int i{0}; i < canServiceCount; i++)
+            canService[i] = true;
+        shuffle(canService.begin(), canService.end(), generator);
+
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+            if(!canService[f])
+                x[c][f].set(GRB_DoubleAttr_UB, 0.0); // found out about setting upper bound instead of adding a new constraint at https://docs.gurobi.com/projects/optimizer/en/current/concepts/attributes/examples.html 
+        
+    }
+
+   
+    
+
+
+    /////
+
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  
-        model.set(GRB_DoubleParam_TimeLimit, 600); 
+        model.set(GRB_DoubleParam_TimeLimit, 3600); 
         //model.write("model.lp");
+
         model.read("cadizFineTune.prm");
         model.optimize();
-        //long long profit{0};
+
         if(model.get(GRB_IntAttr_SolCount) > 0)
-        {
-     
-            //excel << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-            excel << "," << std::setprecision(4) << std::fixed <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-        }
+            excel << std::setprecision(4) << std::fixed << model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << "," << random_Seed << endl; 
         else // case of infeasible solution 
-        {
-            //profit = -1;
-            excel <<  -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
-        } 
+            excel << -1 << "," << model.get(GRB_DoubleAttr_Runtime) << "," << random_Seed << endl; 
 }
 
 int main()
 {
     //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("TEST.csv");
-    excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
+    ofstream excel("MT1_1000-2000_25p_ReducedVers.csv");
+    excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << "," << "seed" << endl;
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
@@ -138,11 +164,19 @@ int main()
     fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/UFLP/standard_UFLP/problem_sets_(from_other_people)/Cadiz_1000-2000_MT1";
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
+        /* if(problemPath.path().filename() =="MT1_1100.txt" || problemPath.path().filename() =="MT1_1000.txt") // To run a single problem
+        {
+            cout << "skipped\n";
+            continue; 
+        } */
         UFLPInstance UFLP;
         readUFLP(problemPath.path().string(), UFLP);
-        excel << problemPath.path().filename().string();
+        excel << problemPath.path().filename().string() << ",";
         runGurobiUFLP(env, excel, UFLP);
     }
 
     return 0;
 }
+
+
+//NOTE nonrandom version (removing most expensive ones) would involve sorting by value,then marking them as not usable from their associated idx
