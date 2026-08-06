@@ -7,11 +7,12 @@
 #include <iomanip>
 #include <filesystem>
 #include <random> // for randomizing shuffle()
+#include <algorithm> // for std::sort()
 using namespace std;
 namespace fs = std::filesystem;
 
 
-double COVERAGE_PROPORTION = 0.25;
+double COVERAGE_PROPORTION = 0.75;
 //int fixedShuffleSeed = 172;
 
 
@@ -112,7 +113,8 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
 
 
     ///// NEW constraint for a given customer, which warehouses can satisfy a given customer
-    std::random_device rd; // random_device generates a random int that fits within 32 bits, more random than using the system clock
+    // Random variant (will make a method later)
+    /* std::random_device rd; // random_device generates a random int that fits within 32 bits, more random than using the system clock
     unsigned int random_Seed = rd(); //unsigned required to fit larger size
     mt19937 generator(random_Seed);
     int canServiceCount = UFLProblem.facilityCount * COVERAGE_PROPORTION; // amount of warehouses that CAN service a given custonmer
@@ -127,11 +129,37 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
             if(!canService[f])
                 x[c][f].set(GRB_DoubleAttr_UB, 0.0); // found out about setting upper bound instead of adding a new constraint at https://docs.gurobi.com/projects/optimizer/en/current/concepts/attributes/examples.html 
         
-    }
-
+    } */
+   // Removing from top variant variant
    
-    
+   int cannotServiceCount = UFLProblem.facilityCount * (1 - COVERAGE_PROPORTION);
+   targetPriceI = 0;
+   for(int c{0}; c < UFLProblem.customerCount; c++)
+    {
+        vector<double> serviceCosts; //contains the service costs of all facilities for the c-th customer
+        vector<int> facilityIndexes;
+        for(int i{0}; i < UFLProblem.facilityCount; i++)  
+        {
+            facilityIndexes.push_back(i);
+            serviceCosts.push_back(UFLProblem.servicePrices[targetPriceI++]);
+        }
+        // sorts so that the index of the most expensive to service warehouse for the cth customer is stored at the start of facilityIndexes (as its sorted from greatest to least)
+        sort(facilityIndexes.begin(), facilityIndexes.end(), [&serviceCosts](int i, int j) 
+        {
+            return (serviceCosts[i] > serviceCosts[j]);
+        }
+        );
 
+        
+        // for(int i : facilityIndexes) // just for printing out highest to lowest service prices
+        //    cout << UFLProblem.servicePrices[i + (c * UFLProblem.facilityCount)] << endl;
+        //cout << endl; 
+        
+       
+        for(int i{0}; i < cannotServiceCount; i++) 
+            x[c][facilityIndexes[i]].set(GRB_DoubleAttr_UB, 0.0);
+    }
+   
 
     /////
 
@@ -143,15 +171,24 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
         model.optimize();
 
         if(model.get(GRB_IntAttr_SolCount) > 0)
+            excel << std::setprecision(4) << std::fixed << model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        else // case of infeasible solution 
+            excel << -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
+
+
+        //random removal output 
+        /* 
+        if(model.get(GRB_IntAttr_SolCount) > 0)
             excel << std::setprecision(4) << std::fixed << model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << "," << random_Seed << endl; 
         else // case of infeasible solution 
             excel << -1 << "," << model.get(GRB_DoubleAttr_Runtime) << "," << random_Seed << endl; 
+        */
 }
 
 int main()
 {
     //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("MT1_1000-2000_25p_ReducedVers.csv");
+    ofstream excel("MT1_1000-2000_75p_ReducedVersTopRemoved.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << "," << "seed" << endl;
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
