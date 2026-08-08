@@ -12,7 +12,7 @@ using namespace std;
 namespace fs = std::filesystem;
 
 
-double COVERAGE_PROPORTION = 0.75;
+double COVERAGE_PROPORTION = 0.25;
 //int fixedShuffleSeed = 172;
 
 
@@ -188,7 +188,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
 int main()
 {
     //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("MT1_1000-2000_75p_ReducedVersTopRemoved.csv");
+    ofstream excel("MT1_1000-2000_25p_ReducedVersTopRemoved.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << "," << "seed" << endl;
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -199,13 +199,15 @@ int main()
 
     //reading + solving
     fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/UFLP/standard_UFLP/problem_sets_(from_other_people)/Cadiz_1000-2000_MT1";
+    int skipUpToCount{0}; // 0 = not skipping
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
-        /* if(problemPath.path().filename() =="MT1_1100.txt" || problemPath.path().filename() =="MT1_1000.txt") // To run a single problem
+        if(skipUpToCount) // skips all problems before and including the skipUpToCount-th problem
         {
-            cout << "skipped\n";
+            skipUpToCount--;
+            cout << "skipped " << problemPath.path().filename() << "\n";
             continue; 
-        } */
+        }
         UFLPInstance UFLP;
         readUFLP(problemPath.path().string(), UFLP);
         excel << problemPath.path().filename().string() << ",";
