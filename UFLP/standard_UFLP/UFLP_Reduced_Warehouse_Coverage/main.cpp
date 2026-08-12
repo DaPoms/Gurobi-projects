@@ -188,7 +188,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
 int main()
 {
     //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("MT1_1000-2000_25p_ReducedVersTopRemoved.csv");
+    ofstream excel("MT1_1000-2000_25p_ReducedVersTopRemovedRUNVERSIONTEST.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << "," << "seed" << endl;
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
