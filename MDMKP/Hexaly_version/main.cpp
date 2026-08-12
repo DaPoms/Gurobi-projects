@@ -191,26 +191,30 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
 
 
 
-void runGurobiMDMKP(HexalyOptimizer& optimizer, ofstream& excel, vector<problemSet>& caseNums, int caseCounter)
+void runGurobiMDMKP(ofstream& excel, vector<problemSet>& caseNums, int caseCounter)
 {
-    HxModel model = optimizer.getModel();
+    
 
-    int blockNum{1};
+    int blockNum{1}; //do not delete
     /////////////////////////////////////// Test branch code!!!! (ONCE AGAIN, REMOVE THIS AFTER DONE THE TESTING)
     for(auto caseNum : caseNums)
     {
+        HexalyOptimizer optimizer; 
+        HxModel model = optimizer.getModel();
+        
  //        for(int& demandRequirement : caseNum.knapsackDemandRequirementVals) //modifying the demand requirements (loosening requirements)
          //   demandRequirement *= 0.8; 
     /////////////////////////
 
-        //code specific for removing cases that did get feasible solutions in previous tests so we can test the core problem approach only on hard problems
-     /*    if(blockNum != 10)
+        
+        if(blockNum < 2) // used for selecting which set of problems get run
         {    
             blockNum++;
             continue;
         }
- */
-        HxExpression objective = model.sum();
+
+
+        HxExpression objective = model.sum(); //Alternative to += (as Hexaly does not support += for expressions)
 
         vector<HxExpression> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
@@ -238,25 +242,10 @@ void runGurobiMDMKP(HexalyOptimizer& optimizer, ofstream& excel, vector<problemS
             model.constraint( demandExpr >= caseNum.knapsackDemandRequirementVals[i] );
         }
 
-       // ///////////////////// EXPERIMENT DELETE ERIGGIRJREGJGJIEIJ  
-       // This one is for setting a constraint for a minimum obj val 
 
- /*       HxExpression minObjVal;
-       for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
-            {
-                    //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    minObjVal += caseNum.problemsByCase[0][e].value * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0
-            }
-            model.constraint(minObjVal >= 4438); */
-
-        //////////////////////////// 
-        
-
-        // model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
-        
-        model.close(); // Hexaly required model to be closed before solving
+        model.close(); // Hexaly requires model to be closed before solving
         optimizer.getParam().setGapLimit(0.0001);
-        optimizer.getParam().setTimeLimit(60); 
+        optimizer.getParam().setTimeLimit(3600); 
         optimizer.solve();
               
        
@@ -264,7 +253,7 @@ void runGurobiMDMKP(HexalyOptimizer& optimizer, ofstream& excel, vector<problemS
         
         if(s.getStatus() == SS_Feasible ||s.getStatus() == SS_Optimal )
         {
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  s.getValue(objective) << "," << optimizer.getStatistics().getRunningTime() << "," << s.getObjectiveGap(0) << endl; 
+            excel << "B" << blockNum++ << "C" << (caseCounter + 1) << "," <<  s.getValue(objective) << "," << optimizer.getStatistics().getRunningTime() << "," << s.getObjectiveGap(0) << endl; 
            // For showing decision variables
            
           //    for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
@@ -282,7 +271,7 @@ void runGurobiMDMKP(HexalyOptimizer& optimizer, ofstream& excel, vector<problemS
 
         }
         else // case of infeasible solution 
-           excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  -1 << "," << optimizer.getStatistics().getRunningTime() << endl; 
+           excel << "B" << blockNum++ << "C" << (caseCounter + 1) << "," <<  -1 << "," << optimizer.getStatistics().getRunningTime() << endl; 
         
 
         // For printing display + capaacity constraints
@@ -331,10 +320,10 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7HEXALYTESTCase1.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
+    ofstream excel("MDMKPct7HEXALYCase3_3600s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << endl;
 
-    HexalyOptimizer optimizer; 
+   
     //reading 
    vector<MDMKRawProblem> MDMKRawProblems;
     readMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/datac7.txt", MDMKRawProblems);
@@ -350,12 +339,12 @@ int main()
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
 
-    int caseNum = 4; //just a fool proof way for me to test specific cases 
-    //(I made a mistake once with a more manual setup). Case 3 = case 3, but my functions use arrays that are 0 indexed, so we  need to pass it as case -1
+    int caseNum = 3; //just a fool proof way for me to test specific cases 
+    //(I made a mistake once with a more manual setup). CaseNum = 3 == case 3, but my functions use arrays that are 0 indexed, so we need to pass it as case 3-1 == 2,
 
     vector<problemSet> caseSet;
     formatCase(caseNum - 1, caseSet, problemSets);
-    runGurobiMDMKP(optimizer, excel, caseSet, caseNum - 1);
+    runGurobiMDMKP(excel, caseSet, caseNum - 1);
     std::cout << "finished!";
 
     return 0;
