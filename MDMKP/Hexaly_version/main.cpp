@@ -207,11 +207,11 @@ void runGurobiMDMKP(ofstream& excel, vector<problemSet>& caseNums, int caseCount
     /////////////////////////
 
         
-        if(blockNum < 2) // used for selecting which set of problems get run
+   /*      if(blockNum < 2) // used for selecting which set of problems get run
         {    
             blockNum++;
             continue;
-        }
+        } */
 
 
         HxExpression objective = model.sum(); //Alternative to += (as Hexaly does not support += for expressions)
@@ -253,7 +253,7 @@ void runGurobiMDMKP(ofstream& excel, vector<problemSet>& caseNums, int caseCount
         
         if(s.getStatus() == SS_Feasible ||s.getStatus() == SS_Optimal )
         {
-            excel << "B" << blockNum++ << "C" << (caseCounter + 1) << "," <<  s.getValue(objective) << "," << optimizer.getStatistics().getRunningTime() << "," << s.getObjectiveGap(0) << endl; 
+            excel << "B" << blockNum++ << "C" << caseCounter << "," <<  s.getValue(objective) << "," << optimizer.getStatistics().getRunningTime() << "," << s.getObjectiveGap(0) << endl; 
            // For showing decision variables
            
           //    for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
@@ -271,7 +271,7 @@ void runGurobiMDMKP(ofstream& excel, vector<problemSet>& caseNums, int caseCount
 
         }
         else // case of infeasible solution 
-           excel << "B" << blockNum++ << "C" << (caseCounter + 1) << "," <<  -1 << "," << optimizer.getStatistics().getRunningTime() << endl; 
+           excel << "B" << blockNum++ << "C" << caseCounter << "," <<  -1 << "," << optimizer.getStatistics().getRunningTime() << endl; 
         
 
         // For printing display + capaacity constraints
@@ -320,7 +320,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7HEXALYCase3_3600s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("MDMKPct7HEXALYCase6_3600s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << endl;
 
    
@@ -339,12 +339,11 @@ int main()
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
 
-    int caseNum = 3; //just a fool proof way for me to test specific cases 
-    //(I made a mistake once with a more manual setup). CaseNum = 3 == case 3, but my functions use arrays that are 0 indexed, so we need to pass it as case 3-1 == 2,
+    int caseNum = 6; //just a fool proof way for me to test specific cases 
 
     vector<problemSet> caseSet;
-    formatCase(caseNum - 1, caseSet, problemSets);
-    runGurobiMDMKP(excel, caseSet, caseNum - 1);
+    formatCase(caseNum, caseSet, problemSets);
+    runGurobiMDMKP(excel, caseSet, caseNum);
     std::cout << "finished!";
 
     return 0;
