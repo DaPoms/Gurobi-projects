@@ -310,7 +310,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
     for(int i{0}; i < problemSets.size(); i++)
     {
         problemSet caseProblem;
-        caseProblem.problemsByCase.push_back(problemSets[i].problemsByCase[caseNum]);
+        caseProblem.problemsByCase.push_back(problemSets[i].problemsByCase[caseNum - 1]);
         caseProblem.knapsackCapacityVals = problemSets[i].knapsackCapacityVals;
         caseProblem.knapsackDemandRequirementVals = problemSets[i].knapsackDemandRequirementVals;
         caseSet.push_back(caseProblem);
@@ -320,7 +320,8 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("MDMKPct7HEXALYCase6_3600s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    //ofstream excel("MDMKPct7HEXALYCase6_3600s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("TESTDELETE.csv"); 
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << endl;
 
    

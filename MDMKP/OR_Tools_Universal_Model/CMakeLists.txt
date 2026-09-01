@@ -16,7 +16,7 @@ find_package(ortools CONFIG REQUIRED)
 add_executable(universal_MDMKP main.cpp)
 target_link_libraries(universal_MDMKP PRIVATE ortools::ortools)
 
-add_custom_command(TARGET universal_MDMKP POST_BUILD
+add_custom_command(TARGET universal_MDMKP POST_BUILD   #Also not made by me
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     "C:/or-tools-installed/bin"
     $<TARGET_FILE_DIR:universal_MDMKP>
@@ -25,16 +25,7 @@ add_custom_command(TARGET universal_MDMKP POST_BUILD
     $<TARGET_FILE_DIR:universal_MDMKP>
 )
 
-#add_custom_command(TARGET universal_MDMKP POST_BUILD # I did get this from online
-#    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#    "C:/Program Files/IBM/ILOG/CPLEX_Studio_Community222/cplex/bin/x64_win64/cplex2220.dll"
-#    $<TARGET_FILE_DIR:universal_MDMKP>
-#)
+# ONLY IMPORANT THINGS TO RUN
 # cmake -S . -B build -DCMAKE_PREFIX_PATH="C:/or-tools-installed"   RUN THIS ONCE ON FIRST TIME          
 # cmake --build build --config Release   RUN THIS AFTERWARDS EACH TIME
-# Above one runs
-
-
-# FIRST TIME SETUP
-# Run in or tools installation: cmake -S . -B build -DCMAKE_PREFIX_PATH="C:/or-tools-installed"
-# Then, in project, run:  cmake -S . -B build -DCMAKE_PREFIX_PATH="C:/or-tools-installed"
+# Above one forms into .exe to run
