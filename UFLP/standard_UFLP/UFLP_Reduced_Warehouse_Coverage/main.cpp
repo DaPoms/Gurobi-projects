@@ -131,9 +131,9 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
         
     } */
    // Removing from top variant variant
-   
+
    int cannotServiceCount = UFLProblem.facilityCount * (1 - COVERAGE_PROPORTION);
-   targetPriceI = 0;
+   targetPriceI = 0; // servicePrices are stored as a 1D array so this is needed to traverse it (or you could use i * facilitycount)
    for(int c{0}; c < UFLProblem.customerCount; c++)
     {
         vector<double> serviceCosts; //contains the service costs of all facilities for the c-th customer
