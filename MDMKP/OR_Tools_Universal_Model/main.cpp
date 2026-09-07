@@ -246,13 +246,14 @@ void runSolverMDMKP(string solverName, int timeLimitInSeconds, ofstream& excel, 
                 demandConstr->SetCoefficient(x[e], caseNum.problemsByCase[0][e].demandVal[i]); // REMINDER: FOR NON CASE 1, edit demandVAL[0
         }
 ////////////////////////////////////////////////////
-        solver->set_time_limit(timeLimitInSeconds * 1000); // this solver param is done in milliseconds
+        solver->SetTimeLimit(absl::Seconds(timeLimitInSeconds)); // this solver param is done in milliseconds
         //solver->SetSolverSpecificParametersAsString("MIPGAP = 0.0001"); //Gurobi
        // solver->SetSolverSpecificParametersAsString("relative_gap_limit: 0.0001"); //CP-SAT
+       //solver->SetSolverSpecificParametersAsString("time_limit=" + to_string(timeLimitInSeconds) + ".0"); // IN CASE TIME LIMIT PARAM DOESNT WORK FOR SOLVER
         //CBC (uses Cbc 2.10.12)
         MPSolverParameters params; // CPLEX must use parameters object
         params.SetDoubleParam(MPSolverParameters::RELATIVE_MIP_GAP, 0.0001); // FOR CPLEX + CBC
-        //
+        
 
 
          // allowableGap 0.0001 CBC, MIPGAP = 0.0001 GUROBI, limits/gap = 0.0001 SCIP. MUST CHANGE WHEN GOING BETWEEN SOLVERS
@@ -261,7 +262,7 @@ void runSolverMDMKP(string solverName, int timeLimitInSeconds, ofstream& excel, 
         //const MPSolver::ResultStatus result = solver->Solve(); //For CPLEX version
   //       std::cout << "Vars: " << model.get(GRB_IntAttr_NumVars) << endl;
   //      std::cout << "Constraints: " << model.get(GRB_IntAttr_NumConstrs); 
-
+ 
     
         
         if(result == MPSolver::FEASIBLE)
@@ -341,9 +342,9 @@ int main()
        // runGurobiMDMKP(env, excel, caseSet, i);
     //} 
 
-    int caseNum = 6; 
+    int caseNum = 3; 
     int timeInSecondsPerProblem = 3600;
-    string solverName = "CBC";
+    string solverName = "CPLEX_MIXED_INTEGER_PROGRAMMING";
 
     ofstream excel(solverName + "_MDMKP_Case" + to_string(caseNum) +  "_" + to_string(timeInSecondsPerProblem) + "s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
