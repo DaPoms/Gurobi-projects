@@ -30,6 +30,7 @@ struct UFLPInstance
     int customerCount;
 };
 
+
 void readUFLP(string inputFileName, UFLPInstance& UFLP)
 {
     string skipWord; // Just used to skip a >>
@@ -188,10 +189,10 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
 
 vector<int> getOccurencesOfServiceCostRanges(UFLPInstance& problem) //gets the occurences of cost of service cost
 {
-    vector<int> ans(25); //chose vector for ease of use even though size is fixed
+    vector<int> ans(26); //chose vector for ease of use even though size is fixed
     for(double d : problem.servicePrices)
     {
-        int i = (int) d - 1;
+        int i = (int) d;
         ans[i]++;
     }
     return ans;
@@ -207,7 +208,7 @@ int main()
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
         UFLPInstance UFLP;
-        readUFLP(problemPath.path().filename().string(), UFLP);
+        readUFLP(problemPath.path().string(), UFLP);
         vector<int> histogramData = getOccurencesOfServiceCostRanges(UFLP);
         excel << problemPath.path().string() << "\n";
         for(int i{0}; i < histogramData.size(); i++)
