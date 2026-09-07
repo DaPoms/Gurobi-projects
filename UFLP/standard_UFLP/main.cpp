@@ -104,7 +104,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
     }
 
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  
-        model.set(GRB_DoubleParam_TimeLimit, 600); 
+        model.set(GRB_DoubleParam_TimeLimit, 3600); 
         //model.write("model.lp");
         model.read("cadizFineTune.prm");
         model.optimize();
