@@ -11,6 +11,8 @@ using namespace std;
 #include <vector>
 using namespace std;
 
+// just the original warm start script but specifically for loading from file
+
 
 // This was an experiment on gurobi warm start behavior, it does not fully function but I learned that warm starts must be fully feasible to be considered by gurobi (but will undergo a repair phase at first)
 
@@ -304,13 +306,18 @@ void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
 
         //finds warm soluition
         // I like the idea of this approach but the issue is you really need a feasible warm start and this overlap approach will essentially never be a feasible solution
-        vector<double> capacitySol = runGurobiMKP(env, excel, caseNum, true);
+        //vector<double> capacitySol = runGurobiMKP(env, excel, caseNum, true);
+        //feeds warm start vals
 
+
+        // THIS is just a hijack to reuse this old code temporarily, make sure to comment out if reusing this file!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        vector<bool> capacitySol = {0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0};
+       ////////////
         if(capacitySol.size() != 0)
         {
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
-                if(capacitySol[i] == 1.0) //the overlap between both solutions it brought into warm start
+                if(capacitySol[i] == true) //the overlap between both solutions it brought into warm start
                     x[i].set(GRB_DoubleAttr_Start, 1.0);
             }
         }
