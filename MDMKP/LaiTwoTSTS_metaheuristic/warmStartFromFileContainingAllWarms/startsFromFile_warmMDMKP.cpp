@@ -9,6 +9,7 @@ using namespace std;
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <iomanip>
 using namespace std;
 
 // just the original warm start script but specifically for loading from file
@@ -46,6 +47,34 @@ struct problemSet
     vector<long> knapsackCapacityVals;
     vector<long> knapsackDemandRequirementVals; 
 };
+
+// File must be of this format: Each line contains: B#C#: 1 0 0 1 . . . (block number and case number followed by ":" and then all the decision vars for that problem) 
+// Output also expects to be similar to beasleys: 15 "blocks" and 6 different cases. Each vector<bool> is a
+vector<vector<vector<bool>>> readWarmStartsFromFile(ifstream& warmStartFile)
+{
+    vector<vector<vector<bool>>> ans(6); // each vector<vector<bool>> represents a case, and vector<bool> contains the decision values of the ith block for that given case
+    for(vector<vector<bool>>& v : ans)
+        v = vector<vector<bool>>(15);
+    string readLine;
+    bool decisionVal;
+    int problemBlock;
+    int problemCase;
+    while(getline(warmStartFile, readLine, ':'))
+    {
+        istringstream s{readLine};
+        s.ignore(); // This skips exactly one character (The 'B' in "B#C#:")
+        s >> problemBlock;
+        s.ignore();
+        s >> problemCase;
+     
+        getline(warmStartFile, readLine); //Gets all text to the right of ':'
+        s = istringstream{readLine};
+        while(s >> decisionVal)
+            ans[problemCase - 1][problemBlock - 1].push_back(decisionVal);
+    }
+    return ans;
+}
+
 
 
 //Formats MKMDProblem into their 6 respective cases, in accordance to the brunel paper. Here is a definition of each case:
@@ -176,172 +205,82 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
     }
 }
 
-///////////////////////////////////
-vector<double> runGurobiMKP(GRBEnv& env, ofstream& excel, problemSet& caseNum, bool isCapacityConstr)
+
+
+void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& problemsFromCase, int caseNum)
 {
     int blockNum{1};
- 
-        vector<GRBLinExpr> demandConstr;
-        vector<GRBLinExpr> capacityConstr;
-        GRBLinExpr objective;
-        GRBModel model(env);
-        
-        model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-        model.set(GRB_DoubleParam_TimeLimit, 100); //600 
-        vector<GRBVar> x; //variable for if we include / not include item in knapsack
-//////////////////// objective value definition ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) 
-            x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
-       
-        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-                objective += caseNum.problemsByCase[0][i].value * x[i]; 
-        model.setObjective(objective, GRB_MAXIMIZE);
-//////////////////// capacity constraint ///////////////
-if(isCapacityConstr)
-{
-        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++) 
-        {
-            GRBLinExpr capacityExpr;
-           
-            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
-            {
-                capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-            }
-            capacityConstr.push_back(capacityExpr);
-        }
-        for(int i{0}; i < capacityConstr.size(); i++)
-            model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );      
-}
-        
-
-//////////////////// demand constraint ///////////////
-else
-{
-        for(int i{0}; i < caseNum.knapsackDemandRequirementVals.size(); i++) 
-        {
-            GRBLinExpr demandExpr;
-            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
-                demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e];  
-            demandConstr.push_back(demandExpr);
-        }
-        for(int i{0}; i < demandConstr.size(); i++)
-            model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
-}
-
-        model.optimize();
-        
-        if(model.get(GRB_IntAttr_SolCount) > 0)
-        {
-            vector<double> ans(x.size());
-            for(int i{0}; i < x.size(); i++)
-                ans[i] = x[i].get(GRB_DoubleAttr_X);
-
-            return ans;      
-        }
-        else // case of infeasible solution, returns empty solution vector
-        {
-            return vector<double>(0);
-        }
-        blockNum++;
-    
-}
-
-
-void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNums, int caseCounter)
-{
-    int blockNum{1};
-    for(auto caseNum : caseNums)
+    for(auto problemFromCase : problemsFromCase)
     {
-        if(blockNum != 10)
-        {
-            blockNum++;
-            continue;
-        }
-
-
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
         GRBModel model(env);
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-        model.set(GRB_DoubleParam_TimeLimit, 600); //600 
+        model.set(GRB_DoubleParam_TimeLimit, 0.1); //600 
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++) //for warm start we still need to declare the new x or else it will be using the x from the old model if we did x = warmSol
+        for(int i{0}; i < problemFromCase.problemsByCase[0].size(); i++) //for warm start we still need to declare the new x or else it will be using the x from the old model if we did x = warmSol
             x.push_back(model.addVar(0.0, 1.0, 0.0, GRB_BINARY)); 
        
-        for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-                objective += caseNum.problemsByCase[0][i].value * x[i]; 
+        for(int i{0}; i < problemFromCase.problemsByCase[0].size(); i++)
+                objective += problemFromCase.problemsByCase[0][i].value * x[i]; 
         model.setObjective(objective, GRB_MAXIMIZE);
 //////////////////// capacity constraint ///////////////
-        for(int i{0}; i < caseNum.knapsackCapacityVals.size(); i++) 
+        for(int i{0}; i < problemFromCase.knapsackCapacityVals.size(); i++) 
         {
             GRBLinExpr capacityExpr;
            
-            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+            for(int e{0}; e < problemFromCase.problemsByCase[0].size(); e++)
             {
                     //capacityExpr += case1.problemsByCase[0][e].capacityVal[cCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    capacityExpr += caseNum.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                
+                    capacityExpr += problemFromCase.problemsByCase[0][e].capacityVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]  
             }
             capacityConstr.push_back(capacityExpr);
         }
         for(int i{0}; i < capacityConstr.size(); i++)
-            model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );
+            model.addConstr(capacityConstr[i] <= problemFromCase.knapsackCapacityVals[i] );
        
 //////////////////// demand constraint ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  
+        for(int i{0}; i < problemFromCase.problemsByCase[0][0].demandVal.size(); i++)  
         {
             GRBLinExpr demandExpr;
-            for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
+            for(int e{0}; e < problemFromCase.problemsByCase[0].size(); e++)
             {
                     //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                    demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
+                    demandExpr += problemFromCase.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
             }
             demandConstr.push_back(demandExpr);
         }
         for(int i{0}; i < demandConstr.size(); i++)
-            model.addConstr(demandConstr[i] >= caseNum.knapsackDemandRequirementVals[i] );
+            model.addConstr(demandConstr[i] >= problemFromCase.knapsackDemandRequirementVals[i] );
 
         //finds warm soluition
         // I like the idea of this approach but the issue is you really need a feasible warm start and this overlap approach will essentially never be a feasible solution
-        //vector<double> capacitySol = runGurobiMKP(env, excel, caseNum, true);
+        //vector<double> capacitySol = runGurobiMKP(env, excel, problemFromCase, true);
         //feeds warm start vals
 
 
         // THIS is just a hijack to reuse this old code temporarily, make sure to comment out if reusing this file!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        vector<bool> capacitySol = {0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0};
+        ifstream warmStartFileSource{"C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/LaiTwoTSTS_metaheuristic/LaiTwo_DecisionVars"};
+        vector<vector<vector<bool>>> readWarmSols = readWarmStartsFromFile(warmStartFileSource);
+        vector<bool> warmSol = readWarmSols[caseNum - 1][blockNum - 1];
        ////////////
-        if(capacitySol.size() != 0)
-        {
-            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-            {
-                if(capacitySol[i] == true) //the overlap between both solutions it brought into warm start
+        if(warmSol.size() != 0)
+            for(int i{0}; i < problemFromCase.problemsByCase[0].size(); i++)
+                if(warmSol[i]) //the overlap between both solutions it brought into warm start
                     x[i].set(GRB_DoubleAttr_Start, 1.0);
-            }
-        }
-        
+
         model.optimize();
-        long long profit{0};
 
         //model.write("testModel.lp"); //Insane new method I learned that helps a lot with debugging, outputs a file that visually shows what the model holds
         
         
         if(model.get(GRB_IntAttr_SolCount) > 0)
-        {
-            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
-            {
-                if( x[i].get(GRB_DoubleAttr_X) >= 0.5) //Turns out x can only be a double, so we must use a bound rather than an exact value
-                    profit += caseNum.problemsByCase[0][i].value;
-            }        
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
-        }
+            excel << "B" << blockNum << "C" << caseNum << "," <<  std::setprecision(4) << std::fixed <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
         else // case of infeasible solution 
-        {
-            profit = -1;
-            excel << "B" << blockNum << "C" << (caseCounter + 1) << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
-        }
+            excel << "B" << blockNum << "C" << caseNum << "," <<  std::setprecision(4) << std::fixed <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         blockNum++;
     }
 }
@@ -352,7 +291,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
     for(int i{0}; i < problemSets.size(); i++)
     {
         problemSet caseProblem;
-        caseProblem.problemsByCase.push_back(problemSets[i].problemsByCase[caseNum]);
+        caseProblem.problemsByCase.push_back(problemSets[i].problemsByCase[caseNum - 1]);
         caseProblem.knapsackCapacityVals = problemSets[i].knapsackCapacityVals;
         caseProblem.knapsackDemandRequirementVals = problemSets[i].knapsackDemandRequirementVals;
         caseSet.push_back(caseProblem);
@@ -360,9 +299,10 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 }
 
 
+
 int main()
 {
-    ofstream excel("LaiTwoB10C3.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("LaiTwo_MDMKPCt7Case3_warmStartGurobi.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -373,7 +313,7 @@ int main()
 
     //reading 
    vector<MDMKRawProblem> MDMKRawProblems;
-    readMDMKP("datac7.txt", MDMKRawProblems);
+    readMDMKP("C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/datac7.txt", MDMKRawProblems);
     vector<vector<MDMKCandidate>> candidatesByCase;
     vector<problemSet> problemSets;
     RawProblemsToCases(MDMKRawProblems, problemSets);
@@ -386,11 +326,10 @@ int main()
     } 
 */
 
-    vector<problemSet> caseSet; // case 3 
+    vector<problemSet> caseSet; 
     int caseNum = 3;
-    formatCase(caseNum-1, caseSet, problemSets); //yes an input of 2 means case 3
-
-    runWarmGurobiMDMKP(env, excel, caseSet, caseNum-1);
+    formatCase(caseNum, caseSet, problemSets); //yes an input of 2 means case 3
+    runWarmGurobiMDMKP(env, excel, caseSet, caseNum);
 
     return 0;
 }
