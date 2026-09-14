@@ -210,6 +210,8 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
 void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& problemsFromCase, int caseNum)
 {
     int blockNum{1};
+    ifstream warmStartFileSource{"C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/LaiTwoTSTS_metaheuristic/LaiTwo_DecisionVars"};
+    vector<vector<vector<bool>>> readWarmSols = readWarmStartsFromFile(warmStartFileSource);
     for(auto problemFromCase : problemsFromCase)
     {
         vector<GRBLinExpr> demandConstr;
@@ -218,7 +220,7 @@ void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& proble
         GRBModel model(env);
         
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program 
-        model.set(GRB_DoubleParam_TimeLimit, 0.1); //600 
+        model.set(GRB_DoubleParam_TimeLimit, 1800); // 30 mins
         vector<GRBVar> x; //variable for if we include / not include item in knapsack
 //////////////////// objective value definition ///////////////
         for(int i{0}; i < problemFromCase.problemsByCase[0].size(); i++) //for warm start we still need to declare the new x or else it will be using the x from the old model if we did x = warmSol
@@ -256,15 +258,7 @@ void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& proble
         for(int i{0}; i < demandConstr.size(); i++)
             model.addConstr(demandConstr[i] >= problemFromCase.knapsackDemandRequirementVals[i] );
 
-        //finds warm soluition
-        // I like the idea of this approach but the issue is you really need a feasible warm start and this overlap approach will essentially never be a feasible solution
-        //vector<double> capacitySol = runGurobiMKP(env, excel, problemFromCase, true);
-        //feeds warm start vals
-
-
-        // THIS is just a hijack to reuse this old code temporarily, make sure to comment out if reusing this file!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        ifstream warmStartFileSource{"C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/LaiTwoTSTS_metaheuristic/LaiTwo_DecisionVars"};
-        vector<vector<vector<bool>>> readWarmSols = readWarmStartsFromFile(warmStartFileSource);
+        
         vector<bool> warmSol = readWarmSols[caseNum - 1][blockNum - 1];
        ////////////
         if(warmSol.size() != 0)
@@ -302,7 +296,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("LaiTwo_MDMKPCt7Case3_warmStartGurobi.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("LaiTwo_MDMKPCt7Case6_warmStartGurobi.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -327,7 +321,7 @@ int main()
 */
 
     vector<problemSet> caseSet; 
-    int caseNum = 3;
+    int caseNum = 6;
     formatCase(caseNum, caseSet, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(env, excel, caseSet, caseNum);
 
