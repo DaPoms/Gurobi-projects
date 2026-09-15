@@ -271,12 +271,12 @@ void runHexalyMDMKP(ofstream& excel, vector<problemSet>& caseNums, int caseCount
 
         model.close(); // Hexaly requires model to be closed before solving
         optimizer.getParam().setGapLimit(0.0001);
-        optimizer.getParam().setTimeLimit(3600); 
+        optimizer.getParam().setTimeLimit(1800); 
 
-         vector<bool> warmSol = readWarmSols[caseNum - 1][blockNum - 1];
+         vector<bool> warmSol = readWarmSols[caseCounter - 1][blockNum - 1];
        ////////////
         if(warmSol.size() != 0)
-            for(int i{0}; i < problemFromCase.problemsByCase[0].size(); i++)
+            for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
                 if(warmSol[i]) //the overlap between both solutions it brought into warm start
                     x[i].setIntValue(1);
 
@@ -356,7 +356,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 int main()
 {
     //ofstream excel("MDMKPct7HEXALYCase6_3600s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("LaiTwo_ct7_case3_Hexaly.csv"); 
+    ofstream excel("LaiTwo_ct7_case6_Hexaly.csv"); 
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << endl;
 
    
@@ -375,7 +375,7 @@ int main()
         runGurobiMDMKP(env, excel, caseSet, i);
     } */
 
-    int caseNum = 3; //just a fool proof way for me to test specific cases 
+    int caseNum = 6; //just a fool proof way for me to test specific cases 
 
     vector<problemSet> caseSet;
     formatCase(caseNum, caseSet, problemSets);
