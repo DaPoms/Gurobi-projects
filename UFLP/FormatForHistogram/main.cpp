@@ -204,13 +204,13 @@ int main()
     excel << "Histograms:" << "\n";
 
     //reading + solving
-    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/UFLP/standard_UFLP/problem_sets_(from_other_people)/Cadiz_1000-2000_MT1";
+    fs::path problemFolderPath = "C:/Users/Daniel Worktop/VsProjects/Gurobi_research/Gurobi-projects/UFLP/standard_UFLP/problem_sets_(from_other_people)/Cadiz_1000-2000_MT1";
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
         UFLPInstance UFLP;
         readUFLP(problemPath.path().string(), UFLP);
         vector<int> histogramData = getOccurencesOfServiceCostRanges(UFLP);
-        excel << problemPath.path().string() << "\n";
+        excel << problemPath.path().filename().string() << "\n";
         for(int i{0}; i < histogramData.size(); i++)
             excel << histogramData[i] << ",";
         excel << endl;
