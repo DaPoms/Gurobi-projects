@@ -191,7 +191,7 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
 
 
 
-void runGurobiMDMKP(ofstream& excel, vector<problemSet>& caseNums, int caseCounter)
+void runHexalyMDMKP(ofstream& excel, vector<problemSet>& caseNums, int caseCounter)
 {
     
 
@@ -344,7 +344,7 @@ int main()
 
     vector<problemSet> caseSet;
     formatCase(caseNum, caseSet, problemSets);
-    runGurobiMDMKP(excel, caseSet, caseNum);
+    runHexalyMDMKP(excel, caseSet, caseNum);
     std::cout << "finished!";
 
     return 0;

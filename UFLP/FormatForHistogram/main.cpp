@@ -30,6 +30,7 @@ struct UFLPInstance
     int customerCount;
 };
 
+
 void readUFLP(string inputFileName, UFLPInstance& UFLP)
 {
     string skipWord; // Just used to skip a >>

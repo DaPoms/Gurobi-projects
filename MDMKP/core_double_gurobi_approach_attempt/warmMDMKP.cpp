@@ -250,6 +250,13 @@ void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
     int blockNum{1};
     for(auto caseNum : caseNums)
     {
+        if(blockNum != 10)
+        {
+            blockNum++;
+            continue;
+        }
+
+
         vector<GRBLinExpr> demandConstr;
         vector<GRBLinExpr> capacityConstr;
         GRBLinExpr objective;
@@ -282,14 +289,13 @@ void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
             model.addConstr(capacityConstr[i] <= caseNum.knapsackCapacityVals[i] );
        
 //////////////////// demand constraint ///////////////
-        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  // NEED TO CHECK CASE VAL REIJEIOGJIGJERJIGOERGIOREGJIERGJIOERGJIOERGJIOGJOERGJO
+        for(int i{0}; i < caseNum.problemsByCase[0][0].demandVal.size(); i++)  
         {
             GRBLinExpr demandExpr;
             for(int e{0}; e < caseNum.problemsByCase[0].size(); e++)
             {
                     //demandExpr += case1.problemsByCase[0][e].demandVal[dCount] * x[i]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
                     demandExpr += caseNum.problemsByCase[0][e].demandVal[i] * x[e]; // REMINDER: FOR NON CASE 1, edit demandVAL[0]
-                
             }
             demandConstr.push_back(demandExpr);
         }
@@ -299,13 +305,12 @@ void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& caseNu
         //finds warm soluition
         // I like the idea of this approach but the issue is you really need a feasible warm start and this overlap approach will essentially never be a feasible solution
         vector<double> capacitySol = runGurobiMKP(env, excel, caseNum, true);
-        //feeds warm start vals
-       
+
         if(capacitySol.size() != 0)
         {
             for(int i{0}; i < caseNum.problemsByCase[0].size(); i++)
             {
-                if(capacitySol[i] == 1) //the overlap between both solutions it brought into warm start
+                if(capacitySol[i] == 1.0) //the overlap between both solutions it brought into warm start
                     x[i].set(GRB_DoubleAttr_Start, 1.0);
             }
         }
@@ -350,7 +355,7 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("WarmMDMKP.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("LaiTwoB10C3.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -374,10 +379,11 @@ int main()
     } 
 */
 
-    vector<problemSet> case3Set; // case 3 
-    formatCase(2, case3Set, problemSets); //yes an input of 2 means case 3
+    vector<problemSet> caseSet; // case 3 
+    int caseNum = 3;
+    formatCase(caseNum-1, caseSet, problemSets); //yes an input of 2 means case 3
 
-    runWarmGurobiMDMKP(env, excel, case3Set, 2);
+    runWarmGurobiMDMKP(env, excel, caseSet, caseNum-1);
 
     return 0;
 }
