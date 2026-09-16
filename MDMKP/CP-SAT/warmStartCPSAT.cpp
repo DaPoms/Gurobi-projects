@@ -346,8 +346,8 @@ int main()
        // runGurobiMDMKP(env, excel, caseSet, i);
     //} 
 
-    int caseNum = 3; 
-    int timeInSecondsPerProblem = 1;
+    int caseNum = 6; 
+    int timeInSecondsPerProblem = 1800;
     string solverName = "CP-SAT";
 
     ofstream excel(solverName + "_LaiTSTSWarmStart_MDMKP_Case" + to_string(caseNum) +  "_" + to_string(timeInSecondsPerProblem) + "s.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite

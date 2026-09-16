@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 4.4.2)
 project (MDMKP_Universal_Solver LANGUAGES CXX)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # These 3 steps were created with the help of gemini #############
 # 1. Point CMake to your CPLEX installation
 set(CPLEX_ROOT "C:/Program Files/IBM/ILOG/CPLEX_Studio_Community222" CACHE PATH "CPLEX Root Directory")
