@@ -301,8 +301,8 @@ void Tabu_Search(Solution &S)
 	 starting_time = clock(); 
 	 current_time = (double) (1.0*(clock() - starting_time)/CLOCKS_PER_SEC);  
 	 flag  = 0; 
-    // while( current_time < 0.5*time_limit || flag == 0 )
-     while( non_improve < 2*alpha || flag == 0 )
+     while( current_time < 0.5*time_limit || flag == 0 )
+     //while( non_improve < 2*alpha || flag == 0 ) // original end case
         {
           tabu_best_fc = -999999999;  
           best_fc = -999999999;
@@ -1097,3 +1097,5 @@ int main(int argc, char **argv)
         cout << "DONE!\n";
      return 1;	
 }
+
+//  bash ./runFolderTSTS.sh MDMKP_LaiTwoFormat 60
