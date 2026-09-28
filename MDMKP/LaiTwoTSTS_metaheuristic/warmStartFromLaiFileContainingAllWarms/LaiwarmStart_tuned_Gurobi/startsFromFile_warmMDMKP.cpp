@@ -315,6 +315,7 @@ int main()
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
+    //env.readParams("LaiwarmB11C3_tuneKEEP.prm"); // For loading a tune file (.prm)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
     (env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
@@ -336,7 +337,7 @@ int main()
 */
 
     vector<problemSet> caseSet; 
-    int caseNum = 6;
+    int caseNum = 3;
     formatCase(caseNum, caseSet, problemSets); //yes an input of 2 means case 3
     runWarmGurobiMDMKP(env, excel, caseSet, caseNum);
 

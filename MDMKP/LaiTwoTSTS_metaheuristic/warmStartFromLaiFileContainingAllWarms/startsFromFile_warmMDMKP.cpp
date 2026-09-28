@@ -210,7 +210,7 @@ void readMDMKP(string fileName, vector<MDMKRawProblem>& MDMKRawProblems) // read
 void runWarmGurobiMDMKP(GRBEnv& env, ofstream& excel, vector<problemSet>& problemsFromCase, int caseNum)
 {
     int blockNum{1};
-    ifstream warmStartFileSource{"C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/LaiTwoTSTS_metaheuristic/LaiTwo_DecisionVars"};
+    ifstream warmStartFileSource{"C:/Users/Pomer/Desktop/Gurobi projects/MDMKP/LaiTwoTSTS_metaheuristic/LaiTwo_DecisionVars_NoTimer"};
     vector<vector<vector<bool>>> readWarmSols = readWarmStartsFromFile(warmStartFileSource);
     for(auto problemFromCase : problemsFromCase)
     {
@@ -292,14 +292,13 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
     }
 }
 
-
-
 int main()
 {
-    ofstream excel("LaiTwo_MDMKPCt7Case6_warmStartGurobi.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("LaiTwo_MDMKPCt7Case6_warmStartGurobiTUNED.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
+    env.readParams("LaiwarmB11C3_tuneKEEP.prm"); // For loading a tune file (.prm)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
     (env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
