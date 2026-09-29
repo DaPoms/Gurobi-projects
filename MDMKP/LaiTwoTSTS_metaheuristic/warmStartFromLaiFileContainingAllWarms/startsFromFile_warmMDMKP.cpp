@@ -294,11 +294,11 @@ void formatCase(int caseNum, vector<problemSet>& caseSet, vector<problemSet>& pr
 
 int main()
 {
-    ofstream excel("LaiTwo_MDMKPCt7Case6_warmStartGurobiTUNED.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
+    ofstream excel("LaiTwo_MDMKPCt7Case6_warmStartGurobiTUNEDwithB11C6.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
-    env.readParams("LaiwarmB11C3_tuneKEEP.prm"); // For loading a tune file (.prm)
+    env.readParams("LaiwarmB11C6_tune.prm"); // For loading a tune file (.prm)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
     (env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
