@@ -22,7 +22,70 @@ struct UFLPInstance
     int customerCount;
 };
 
-void readUFLP(string inputFileName, UFLPInstance& UFLP)
+
+//Supports Ghosh and MED problem format
+/* 
+    This format is specified by https://algo.rwth-aachen.de/ufllib/index.shtml#simp as:
+    "The first line consists of 'FILE: ' and the name of the file. 
+    The next line contains n, m and a 0. The subsequent n lines consist of the number of the facility,
+    the opening cost, and the connetion cost to the cities."
+*/
+void readUFLPSimpleForm(string inputFileName, UFLPInstance& UFLP)
+{
+    string skipWord; // Just used to skip a >>
+    vector<double> fixedPrices;
+    
+    double fixedPrice;
+    double servicePrice;
+    ifstream file{inputFileName};
+    if(!file)
+    {
+        cerr << "Problem encountered in file reading";
+        exit(EXIT_FAILURE);
+    }
+    int facilityCount, customerCount;
+    file >> facilityCount >> customerCount >> skipWord;
+    vector<vector<double>> servicePrices(customerCount);
+    for(int i{0}; i < facilityCount; i++) // follows Beasley's format
+    {
+        file >> skipWord;
+        fixedPrices.push_back((file >> fixedPrice, fixedPrice));
+        for(int c{0}; c < customerCount; c++)
+        {
+            servicePrices[c].push_back((file >> servicePrice, servicePrice));
+        }
+    }
+
+/*     for(int c{0}; c < customerCount; c++)
+    {
+        file >> skipWord; // skipped here is the demand value, which is exclusive to capacitated problems, not uncapacitated
+        for(int i{0}; i < facilityCount; i++) // follows Beasley's format
+        {
+            file >> servicePrice;
+            servicePrices.push_back(servicePrice);
+        }
+    } */
+
+    vector<double> flattenedServicePrices;
+    for(vector<double> serviceCostsForCustomer : servicePrices) // serviceCostsForCustomer is the service cost for each facility for a singular customer
+        for(double d : serviceCostsForCustomer)
+            flattenedServicePrices.push_back(d);
+    UFLP.customerCount = customerCount;
+    UFLP.facilityCount = facilityCount;
+    UFLP.servicePrices = flattenedServicePrices; // Stored simply as every customerCount of items are attributed to a customer, so the 1st customer's servicing prices for 15 facilities would be indexes 0-14.
+    UFLP.fixedPrices = fixedPrices;
+}
+
+//Works with Beasley and M*, as they share similar format that can be interpreted by this
+// This reads files that follow the "ORLIB-Cap" format specified by https://algo.rwth-aachen.de/ufllib/index.shtml#simp as:
+/* 
+    "The format allows to store instances for the uncapacitated and capacitated facility location problem. 
+    The first line of a file consists n and m. The next n lines are the opening cost and the capacity of each facility. 
+    The following numbers for the cities are the demand and the connections to all facilities. For each city there is one line with the demand, 
+    and one line with connection costs to all factilities.""
+*/
+
+void readUFLPBeasleyForm(string inputFileName, UFLPInstance& UFLP)
 {
     string skipWord; // Just used to skip a >>
     vector<double> fixedPrices;
@@ -30,6 +93,11 @@ void readUFLP(string inputFileName, UFLPInstance& UFLP)
     double fixedPrice;
     double servicePrice;
     ifstream file{inputFileName};
+    if(!file)
+    {
+        cerr << "Problem encountered in file reading";
+        exit(EXIT_FAILURE);
+    }
     int facilityCount, customerCount;
     file >> facilityCount >> customerCount; // make sure to skip capacitated question parts
     for(int i{0}; i < facilityCount; i++) // follows Beasley's format
@@ -105,13 +173,11 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
 
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  
         model.set(GRB_DoubleParam_TimeLimit, 3600); 
-        //model.write("model.lp");
-        model.read("cadizFineTune.prm");
+        //model.read("cadizFineTune.prm");
         model.optimize();
         //long long profit{0};
         if(model.get(GRB_IntAttr_SolCount) > 0)
         {
-     
             //excel << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
             excel << "," << std::setprecision(4) << std::fixed <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
         }
@@ -125,7 +191,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
 int main()
 {
     //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("TEST.csv");
+    ofstream excel("UFLP_Ghosh_problems_3600s_untuned.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -135,14 +201,17 @@ int main()
     env.start();
 
     //reading + solving
-    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/UFLP/standard_UFLP/problem_sets_(from_other_people)/Cadiz_1000-2000_MT1";
+    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/KoerkelGhosh-sym/allghosh";
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
         UFLPInstance UFLP;
-        readUFLP(problemPath.path().string(), UFLP);
+        //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets
+        readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
         excel << problemPath.path().filename().string();
         runGurobiUFLP(env, excel, UFLP);
     }
+
+    // TODO write scripts for reading Ghosh and MED (CLSA,B,C), and also versions for CP-SAT, CPLEX, and Hexaly
 
     return 0;
 }
