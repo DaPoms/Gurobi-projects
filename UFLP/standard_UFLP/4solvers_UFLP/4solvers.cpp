@@ -1,4 +1,8 @@
+//#include "optimizer/hexalyoptimizer.h"
+//#include "modeler/hexalymodeler.h"
+
 #include "gurobi_c++.h"
+
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -7,6 +11,7 @@
 #include <iomanip>
 #include <filesystem>
 using namespace std;
+//using namespace hexaly;
 namespace fs = std::filesystem;
 
 
@@ -187,11 +192,80 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
             excel <<  -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         } 
 }
+/* 
+void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem)
+{
+    HexalyOptimizer optimizer; 
+    HxModel model = optimizer.getModel();
+    
+    vector<vector<HxExpression>> x; //Decision variable for if warehouse serviced a given customer (vectors stored within x resemble customers, with these customer vectors containing decision variables for each warehouse)
+    vector<HxExpression> y; // Decision variable for if warehouse was opened or not
+    HxExpression objective = model.sum();
+//////////////////// objective value definition ///////////////
+
+     for(int i{0}; i < UFLProblem.customerCount; i++)//initializes inner vectors of variable x
+        x.push_back(vector<HxExpression>());
+    // servicing customer / not 
+    for(int i{0}; i < UFLProblem.customerCount; i++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
+        for(int c{0}; c < UFLProblem.facilityCount; c++)
+            x[i].push_back(model.boolVar());
+    // facility opened/unopened    
+    for(int i{0}; i < UFLProblem.facilityCount; i++) 
+        y.push_back(model.boolVar());
+
+    int targetPriceI{0};
+    
+    for(int i{0}; i < UFLProblem.customerCount; i++) 
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+            objective.addOperand(UFLProblem.servicePrices[targetPriceI++] * x[i][f]); // ith customer for fth facilities 
+    for(int f{0}; f < UFLProblem.facilityCount; f++) 
+            objective.addOperand(UFLProblem.fixedPrices[f] * y[f]);
+
+    model.minimize(objective);
+
+//////////////////// Constraints ///////////////
+     // obj constraint (ensures that all customers are serviced by exactly 1 warehouse)
+    for(int i{0}; i < UFLProblem.customerCount; i++)
+    {
+        HxExpression satisfactionExpr = model.sum(); 
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+            satisfactionExpr.addOperand(x[i][f]); //note var "aij" is not included in beasley's version (all warehouses can satisfy any given customer), but likely this will have to be added here in the future
+        model.constraint(satisfactionExpr == 1);
+    }  
+    
+    // constraint for validating that only open facilities can service customers (as in those with yi = 1)
+    for(int f{0}; f < UFLProblem.facilityCount; f++) 
+    {
+        for(int i{0}; i < UFLProblem.customerCount; i++) 
+            model.constraint(x[i][f] <= y[f]);
+    }
+
+    model.close(); // Hexaly requires model to be closed before solving
+    optimizer.getParam().setGapLimit(0.0001);
+    optimizer.getParam().setTimeLimit(3600); 
+    optimizer.solve();
+    
+    HxSolution s = optimizer.getSolution();
+
+    //long long profit{0};
+    if(s.getStatus() == SS_Feasible ||s.getStatus() == SS_Optimal )
+    {
+        try{
+        excel << "," << std::setprecision(4) << std::fixed <<  objective.getDoubleValue() << "," << optimizer.getStatistics().getRunningTime() << "," << s.getObjectiveGap(0) << endl; 
+        } catch(const exception& e)
+        {
+            cerr << e.what();
+        }
+    }
+    else // case of infeasible solution 
+           excel << "," << -1 << "," << optimizer.getStatistics().getRunningTime() << endl;
+    
+} */
 
 int main()
 {
     //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("UFLP_Ghosh_problems_3600s_untuned.csv");
+    ofstream excel("GUROBI_UFLP_MED_problems_3600s_untuned.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -201,17 +275,22 @@ int main()
     env.start();
 
     //reading + solving
-    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/KoerkelGhosh-sym/allghosh";
+    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
         UFLPInstance UFLP;
         //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets
         readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
-        excel << problemPath.path().filename().string();
+        excel << problemPath.path().filename().stem().string();
         runGurobiUFLP(env, excel, UFLP);
+        //runHexalyUFLP(excel, UFLP);
     }
 
     // TODO write scripts for reading Ghosh and MED (CLSA,B,C), and also versions for CP-SAT, CPLEX, and Hexaly
 
     return 0;
 }
+
+// CPSAT cannot use and floats, so must multiply it up
+// Hexaly I need to look into set notation for faculty -> customer / customer -> faculty pairings
+// CPLEX should be fine to directly translate Gurobi -> CPLEX
