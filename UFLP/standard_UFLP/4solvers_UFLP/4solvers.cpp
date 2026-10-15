@@ -191,7 +191,8 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
             //profit = -1;
             excel <<  -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         } 
-} */
+} 
+*/
 
 // Converts a flat vector that contains every facility count of elems attributed to the customer (so first facilityCount of elems belongs to the first customer, and so on...) to a 2d vector where each vector is a facility, and all the elements are the service price of each customer for that facility
 vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProblem)
@@ -207,6 +208,7 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
     }
     return ans;
 }
+
 // HEXALY IMPLEMENTATION WAS MADE WITH SIGNIFICANT INSPIRATION FROM: https://www.hexaly.com/templates/capacitated-facility-location-problem-cflp
 void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem)
 {
@@ -272,7 +274,7 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem)
 int main()
 {
     //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("HEXALY_UFLP_MSTAR_problems_3600s_untuned.csv");
+    ofstream excel("Hexaly_UFLP_MED_ALL_problems_3600s_untuned.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
    /*  GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -282,12 +284,12 @@ int main()
     env.start(); */
 
     //reading + solving
-    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/BeasleyUFLP/all_beasley_problems";
+    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
         UFLPInstance UFLP;
-        readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets
-        //readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
+        //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets
+        readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
         excel << problemPath.path().filename().stem().string();
         //runGurobiUFLP(env, excel, UFLP);
         runHexalyUFLP(excel, UFLP);
