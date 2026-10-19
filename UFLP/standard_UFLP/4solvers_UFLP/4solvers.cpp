@@ -1,7 +1,10 @@
-#include "optimizer/hexalyoptimizer.h"
-#include "modeler/hexalymodeler.h"
+//#include "optimizer/hexalyoptimizer.h"
+//#include "modeler/hexalymodeler.h"
+//using namespace hexaly;
 
 //#include "gurobi_c++.h"
+
+#include <ilcplex/ilocplex.h>
 
 #include <iostream>
 #include <fstream>
@@ -11,7 +14,6 @@
 #include <iomanip>
 #include <filesystem>
 using namespace std;
-using namespace hexaly;
 namespace fs = std::filesystem;
 
 
@@ -90,6 +92,7 @@ void readUFLPSimpleForm(string inputFileName, UFLPInstance& UFLP)
     and one line with connection costs to all factilities.""
 */
 
+
 void readUFLPBeasleyForm(string inputFileName, UFLPInstance& UFLP)
 {
     string skipWord; // Just used to skip a >>
@@ -126,6 +129,7 @@ void readUFLPBeasleyForm(string inputFileName, UFLPInstance& UFLP)
     UFLP.servicePrices = servicePrices; // Stored simply as every customerCount of items are attributed to a customer, so the 1st customer's servicing prices for 15 facilities would be indexes 0-14.
     UFLP.fixedPrices = fixedPrices;
 }
+
 /* 
 void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
 {
@@ -210,7 +214,7 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
 }
 
 // HEXALY IMPLEMENTATION WAS MADE WITH SIGNIFICANT INSPIRATION FROM: https://www.hexaly.com/templates/capacitated-facility-location-problem-cflp
-void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem)
+/* void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem)
 {
     HexalyOptimizer optimizer; 
     HxModel model = optimizer.getModel();
@@ -270,11 +274,87 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem)
         excel << "," << -1 << "," << optimizer.getStatistics().getRunningTime() << endl;
     }
 }
+ */
+
+ void runCplexUFLP(ofstream& excel, UFLPInstance& UFLProblem)
+{
+        
+        
+        IloEnv env;
+        IloModel model(env);
+        IloNumExpr objective(env); // obj is to minimize for UFLP
+        vector<vector<IloBoolVar>> x; //Decision variable for if warehouse serviced a given customer (vectors stored within x resemble customers, with these customer vectors containing decision variables for each warehouse)
+        vector<IloBoolVar> y; // Decision variable for if warehouse was opened or not
+//////////////////// objective value definition ///////////////
+
+        for(int i{0}; i < UFLProblem.customerCount; i++)//initializes inner vectors of variable x
+            x.push_back(vector<IloBoolVar>());
+        // servicing customer / not 
+        for(int i{0}; i < UFLProblem.customerCount; i++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
+            for(int c{0}; c < UFLProblem.facilityCount; c++)
+                x[i].push_back(IloBoolVar(env));
+        // facility opened/unopened    
+        for(int i{0}; i < UFLProblem.facilityCount; i++) 
+            y.push_back(IloBoolVar(env));
+
+        int targetPriceI{0};
+        for(int i{0}; i < UFLProblem.customerCount; i++) 
+            for(int f{0}; f < UFLProblem.facilityCount; f++) 
+                objective += UFLProblem.servicePrices[targetPriceI++] * x[i][f]; // ith customer for fth facilities 
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+                objective += UFLProblem.fixedPrices[f] * y[f];
+
+        model.add(IloMinimize(env, objective));
+
+//////////////////// Constraints ///////////////
+     // obj constraint (ensures that all customers are serviced by exactly 1 warehouse)
+    for(int i{0}; i < UFLProblem.customerCount; i++)
+    {
+        IloNumExpr satisfactionExpr(env); // Learned that this type is required for using GRBVars for constraint expressions
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+            satisfactionExpr += x[i][f]; //note var "aij" is not included in beasley's version (all warehouses can satisfy any given customer), but likely this will have to be added here in the future
+         model.add(satisfactionExpr == 1);
+    }  
+    
+    // constraint for validating that only open facilities can service customers (as in those with yi = 1)
+    for(int f{0}; f < UFLProblem.facilityCount; f++) 
+    {
+        for(int i{0}; i < UFLProblem.customerCount; i++) 
+            model.add(x[i][f] <= y[f]);
+    }
+        IloCplex cplex(model); 
+        cplex.setParam(IloCplex::Param::TimeLimit, 3600);
+        cplex.setParam(IloCplex::Param::MIP::Tolerances::MIPGap, 0.0001);
+
+        // Below are only needed for extremely large problems
+        /* cplex.setParam(IloCplex::Param::Parallel, 1); 
+        cplex.setParam(IloCplex::Param::WorkMem, 10240);
+        cplex.setParam(IloCplex::Param::MIP::Strategy::File, 3); // Allows offloading RAM memory to SSD if exceeded     
+        cplex.setParam(IloCplex::Param::MIP::Limits::TreeMemory, 15000); // Search tree stop condition
+        cplex.setParam(IloCplex::Param::Threads, 2);  // next try 4 (curr one is 1)
+ */
+        double startTime = cplex.getCplexTime();
+        IloBool status = cplex.solve();
+        double runTime = cplex.getCplexTime() - startTime;
+
+        //long long profit{0};
+        if(status)
+        {
+            //excel << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+            excel << "," << std::setprecision(4) << std::fixed <<  cplex.getObjValue() << "," << runTime << "," << cplex.getMIPRelativeGap() << endl; 
+        }
+        else // case of infeasible solution 
+        {
+            //profit = -1;
+            excel << "," << -1 << "," << runTime << endl; 
+        } 
+        env.end(); // Must manually clean up for CPLEX, unlike Gurobi
+} 
 
 int main()
 {
     //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("Hexaly_UFLP_MED_ALL_problems_3600s_untuned.csv");
+    ofstream excel("CPLEX_UFLP_Beasley_ALL_problems_3600s_untuned.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 
    /*  GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
@@ -284,15 +364,18 @@ int main()
     env.start(); */
 
     //reading + solving
-    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
+    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/BeasleyUFLP/all_beasley_problems";
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
         UFLPInstance UFLP;
-        //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets
-        readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
+        readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets
+        //readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
         excel << problemPath.path().filename().stem().string();
         //runGurobiUFLP(env, excel, UFLP);
-        runHexalyUFLP(excel, UFLP);
+        //runHexalyUFLP(excel, UFLP);
+        runCplexUFLP(excel, UFLP);
+        
+
     }
 
     // TODO write scripts for reading Ghosh and MED (CLSA,B,C), and also versions for CP-SAT, CPLEX, and Hexaly

@@ -298,7 +298,7 @@ void runSolverMDMKP(int timeLimitInSeconds, ofstream& excel, vector<problemSet>&
         else
             cout << "No warm start provided\n";
 
-        objective.end();
+       
         
         double startTime = cplex.getCplexTime();
         IloBool status = cplex.solve();
@@ -308,6 +308,7 @@ void runSolverMDMKP(int timeLimitInSeconds, ofstream& excel, vector<problemSet>&
         else // case of infeasible solution 
             excel << "B" << blockNum << "C" << caseCounter << "," <<  -1 << "," << runTime << endl; 
         blockNum++;
+        env.end();
     }
 }
 
