@@ -7,11 +7,11 @@
 //#include "gurobi_c++.h"
 
 //CPLEX import
-//#include <ilcplex/ilocplex.h>
+#include <ilcplex/ilocplex.h>
 
 
 //CP-SAT imports + alias'
-#include "absl/base/log_severity.h"
+/* #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
 #include "ortools/base/init_google.h"
 #include "ortools/base/logging.h"
@@ -28,7 +28,7 @@ using operations_research::sat::SatParameters;
 using operations_research::sat::CpSolverResponse;
 using operations_research::sat::CpSolverStatus;
 using operations_research::sat::SolveWithParameters;
-
+ */
 
  //Mpsolver imports + alias
  /* 
@@ -309,10 +309,9 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
     }
 }
  */
-/* 
+ 
  void runCplexUFLP(ofstream& excel, UFLPInstance& UFLProblem)
-{
-        
+ {        
         
         IloEnv env;
         IloModel model(env);
@@ -359,16 +358,15 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
         IloCplex cplex(model); 
         cplex.setParam(IloCplex::Param::TimeLimit, 3600);
         cplex.setParam(IloCplex::Param::MIP::Tolerances::MIPGap, 0.0001);
-        ..cplex.setParam(IloCplex::Param::Emphasis::Memory, true);
-        //cplex.setParam(IloCplex::Param::Threads, 2);
+        cplex.setParam(IloCplex::Param::Emphasis::Memory, true);
 
-        //cplex.setParam(IloCplex::Param::Threads, 2); // no crash with 2 threads default settings
+        cplex.setParam(IloCplex::Param::Threads, 6); // no crash with 2 threads default settings
         // Below are only needed for extremely large problems
-        /* cplex.setParam(IloCplex::Param::Parallel, 1); 
-        cplex.setParam(IloCplex::Param::WorkMem, 10240);
-        cplex.setParam(IloCplex::Param::MIP::Strategy::File, 3); // Allows offloading RAM memory to SSD if exceeded     
-        cplex.setParam(IloCplex::Param::MIP::Limits::TreeMemory, 15000); // Search tree stop condition
-        cplex.setParam(IloCplex::Param::Threads, 2);  // next try 4 (curr one is 1)
+        // cplex.setParam(IloCplex::Param::Parallel, 1); 
+       // cplex.setParam(IloCplex::Param::WorkMem, 10240);
+       // cplex.setParam(IloCplex::Param::MIP::Strategy::File, 3); // Allows offloading RAM memory to SSD if exceeded     
+      //  cplex.setParam(IloCplex::Param::MIP::Limits::TreeMemory, 15000); // Search tree stop condition
+     //   cplex.setParam(IloCplex::Param::Threads, 2);  // next try 4 (curr one is 1)
  
         double startTime = cplex.getCplexTime();
         IloBool status = cplex.solve();
@@ -386,8 +384,9 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
             excel << "," << -1 << "," << runTime << endl; 
         } 
         env.end(); // Must manually clean up for CPLEX, unlike Gurobi
-}  */
+}  
 
+/* 
 void runCpSatUFLP(ofstream& excel, UFLPInstance& UFLProblem)
 {
 
@@ -460,7 +459,7 @@ void runCpSatUFLP(ofstream& excel, UFLPInstance& UFLProblem)
         excel <<  -1 << "," << result.wall_time() << endl; 
     } 
 } 
-
+ */
 /* 
 void runMpSolver(ofstream& excel, UFLPInstance& UFLProblem)
 {
@@ -540,7 +539,7 @@ void runMpSolver(ofstream& excel, UFLPInstance& UFLProblem)
  */
 int main()
 {
-    ofstream excel("Cpsat6threads_UFLP_MED1500_3600s_untuned.csv");
+    ofstream excel("CPLEX6threadsMemEmphasis_UFLP_MED3000_3600s_untuned.csv");
     //ofstream excel("cpsat4threads_UFLP_MStarMT1_8threads_3600s_untuned.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
 /* 
@@ -565,8 +564,8 @@ int main()
         std::cout << "Started\n";
         //runGurobiUFLP(env, excel, UFLP);
         //runHexalyUFLP(excel, UFLP);
-        //runCplexUFLP(excel, UFLP);
-        runCpSatUFLP(excel, UFLP);
+        runCplexUFLP(excel, UFLP);
+        //runCpSatUFLP(excel, UFLP);
         //runMpSolver(excel, UFLP);
         std::cout << "Ended\n";
         
