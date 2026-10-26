@@ -1,11 +1,44 @@
+//Hexaly Imports
 //#include "optimizer/hexalyoptimizer.h"
 //#include "modeler/hexalymodeler.h"
 //using namespace hexaly;
 
+//Gurobi import
 //#include "gurobi_c++.h"
 
-#include <ilcplex/ilocplex.h>
+//CPLEX import
+//#include <ilcplex/ilocplex.h>
 
+
+//CP-SAT imports + alias'
+#include "absl/base/log_severity.h"
+#include "absl/log/globals.h"
+#include "ortools/base/init_google.h"
+#include "ortools/base/logging.h"
+#include "ortools/sat/cp_model.h"
+#include "ortools/sat/cp_model_solver.h"
+#include "ortools/sat/model.h"
+#include "ortools/sat/sat_parameters.pb.h"
+#include "ortools/sat/cp_model.pb.h"
+
+using operations_research::sat::CpModelBuilder;
+using operations_research::sat::BoolVar;
+using operations_research::sat::LinearExpr;
+using operations_research::sat::SatParameters;
+using operations_research::sat::CpSolverResponse;
+using operations_research::sat::CpSolverStatus;
+using operations_research::sat::SolveWithParameters;
+
+
+ //Mpsolver imports + alias
+ /* 
+#include "absl/base/log_severity.h"
+#include "absl/log/globals.h"
+#include "ortools/base/init_google.h"
+#include "ortools/linear_solver/linear_solver.h"
+using namespace operations_research;
+ */
+//general imports
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -13,6 +46,7 @@
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
+#include <chrono>
 using namespace std;
 namespace fs = std::filesystem;
 
@@ -195,8 +229,8 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
             //profit = -1;
             excel <<  -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         } 
-} 
-*/
+}  */
+
 
 // Converts a flat vector that contains every facility count of elems attributed to the customer (so first facilityCount of elems belongs to the first customer, and so on...) to a 2d vector where each vector is a facility, and all the elements are the service price of each customer for that facility
 vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProblem)
@@ -275,7 +309,7 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
     }
 }
  */
-
+/* 
  void runCplexUFLP(ofstream& excel, UFLPInstance& UFLProblem)
 {
         
@@ -325,14 +359,17 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
         IloCplex cplex(model); 
         cplex.setParam(IloCplex::Param::TimeLimit, 3600);
         cplex.setParam(IloCplex::Param::MIP::Tolerances::MIPGap, 0.0001);
+        ..cplex.setParam(IloCplex::Param::Emphasis::Memory, true);
+        //cplex.setParam(IloCplex::Param::Threads, 2);
 
+        //cplex.setParam(IloCplex::Param::Threads, 2); // no crash with 2 threads default settings
         // Below are only needed for extremely large problems
         /* cplex.setParam(IloCplex::Param::Parallel, 1); 
         cplex.setParam(IloCplex::Param::WorkMem, 10240);
         cplex.setParam(IloCplex::Param::MIP::Strategy::File, 3); // Allows offloading RAM memory to SSD if exceeded     
         cplex.setParam(IloCplex::Param::MIP::Limits::TreeMemory, 15000); // Search tree stop condition
         cplex.setParam(IloCplex::Param::Threads, 2);  // next try 4 (curr one is 1)
- */
+ 
         double startTime = cplex.getCplexTime();
         IloBool status = cplex.solve();
         double runTime = cplex.getCplexTime() - startTime;
@@ -349,31 +386,189 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
             excel << "," << -1 << "," << runTime << endl; 
         } 
         env.end(); // Must manually clean up for CPLEX, unlike Gurobi
+}  */
+
+void runCpSatUFLP(ofstream& excel, UFLPInstance& UFLProblem)
+{
+
+        int decimalToIntScaling = 10000; // 1 for MED and GHOSH, 10000 for M*, Beasley
+
+        CpModelBuilder model;
+        LinearExpr objective; // obj is to minimize for UFLP
+        vector<vector<BoolVar>> x; //Decision variable for if warehouse serviced a given customer (vectors stored within x resemble customers, with these customer vectors containing decision variables for each warehouse)
+        vector<BoolVar> y; // Decision variable for if warehouse was opened or not
+//////////////////// objective value definition ///////////////
+
+        for(int i{0}; i < UFLProblem.customerCount; i++)//initializes inner vectors of variable x
+            x.push_back(vector<BoolVar>());
+        // servicing customer / not 
+        for(int i{0}; i < UFLProblem.customerCount; i++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
+            for(int c{0}; c < UFLProblem.facilityCount; c++)
+                x[i].push_back(model.NewBoolVar());
+        // facility opened/unopened    
+        for(int i{0}; i < UFLProblem.facilityCount; i++) 
+            y.push_back(model.NewBoolVar());
+
+        int targetPriceI{0};
+        for(int i{0}; i < UFLProblem.customerCount; i++) 
+            for(int f{0}; f < UFLProblem.facilityCount; f++) 
+            {
+                int64_t servicePrice = round(UFLProblem.servicePrices[targetPriceI++] * decimalToIntScaling);
+                objective += servicePrice * x[i][f]; // ith customer for fth facilities 
+            }
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+        {  
+            int64_t fixedPrice = round(UFLProblem.fixedPrices[f] * decimalToIntScaling);
+            objective += fixedPrice * y[f];
+        }
+
+        model.Minimize(objective);
+
+//////////////////// Constraints ///////////////
+     // obj constraint (ensures that all customers are serviced by exactly 1 warehouse)
+    for(int i{0}; i < UFLProblem.customerCount; i++)
+    {
+        LinearExpr satisfactionExpr; // Learned that this type is required for using GRBVars for constraint expressions
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+            satisfactionExpr += x[i][f]; //note var "aij" is not included in beasley's version (all warehouses can satisfy any given customer), but likely this will have to be added here in the future
+         model.AddEquality(satisfactionExpr, 1);
+    }  
+    
+    // constraint for validating that only open facilities can service customers (as in those with yi = 1)
+    for(int f{0}; f < UFLProblem.facilityCount; f++) 
+    {
+        for(int i{0}; i < UFLProblem.customerCount; i++) 
+            model.AddLessOrEqual(x[i][f], y[f]);
+    }
+
+    operations_research::sat::SatParameters p;
+    p.set_max_time_in_seconds(3600);
+    p.set_relative_gap_limit(0.0001);
+    p.set_num_workers(6);
+
+    const CpSolverResponse result = SolveWithParameters(model.Build(), p);
+    //long long profit{0};
+    if(result.status() == CpSolverStatus::FEASIBLE || result.status() == CpSolverStatus::OPTIMAL) 
+    {
+
+        //excel << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        excel << "," << std::setprecision(4) << std::fixed <<  result.objective_value() / decimalToIntScaling << "," << result.wall_time() << "," << (std::abs(result.best_objective_bound() - result.objective_value())) / result.objective_value() << endl; 
+    } // FOR DECIMAL CASE MIGHt HAVE TO CAST TO DOUBLE
+    else // case of infeasible solution 
+    {
+        //profit = -1;
+        excel <<  -1 << "," << result.wall_time() << endl; 
+    } 
 } 
 
+/* 
+void runMpSolver(ofstream& excel, UFLPInstance& UFLProblem)
+{
+        int decimalToIntScaling = 1; // 1 for MED and GHOSH, 10000 for M*, Beasley
+
+       std::unique_ptr<MPSolver> model(MPSolver::CreateSolver("highs"));
+       //std::unique_ptr<MPSolver> model(MPSolver::CreateSolver("scip"));
+        if (!model) 
+        {
+            LOG(WARNING) << "solver unavailable.";
+            return;
+        }
+        
+        MPObjective* objective = model->MutableObjective(); // obj is to minimize for UFLP
+        vector<vector<MPVariable*>> x; //Decision variable for if warehouse serviced a given customer (vectors stored within x resemble customers, with these customer vectors containing decision variables for each warehouse)
+        vector<MPVariable*> y; // Decision variable for if warehouse was opened or not
+//////////////////// objective value definition ///////////////
+    
+        for(int i{0}; i < UFLProblem.customerCount; i++)//initializes inner vectors of variable x
+            x.push_back(vector<MPVariable*>());
+        // servicing customer / not 
+        for(int i{0}; i < UFLProblem.customerCount; i++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
+            for(int c{0}; c < UFLProblem.facilityCount; c++)
+                x[i].push_back(model->MakeBoolVar("x_" + to_string(i) + "_" + to_string(c)));
+        // facility opened/unopened    
+        for(int i{0}; i < UFLProblem.facilityCount; i++) 
+            y.push_back(model->MakeBoolVar("y " + to_string(i)));
+
+        int targetPriceI{0};
+        for(int i{0}; i < UFLProblem.customerCount; i++) 
+            for(int f{0}; f < UFLProblem.facilityCount; f++) 
+                objective->SetCoefficient(x[i][f], UFLProblem.servicePrices[targetPriceI++]); // ith customer for fth facilities 
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+                objective->SetCoefficient(y[f], UFLProblem.fixedPrices[f]);
+
+        objective->SetMinimization();
+
+//////////////////// Constraints ///////////////
+     // obj constraint (ensures that all customers are serviced by exactly 1 warehouse)
+    for(int i{0}; i < UFLProblem.customerCount; i++)
+    {
+        LinearExpr satisfactionExpr; // Learned that this type is required for using GRBVars for constraint expressions
+        for(int f{0}; f < UFLProblem.facilityCount; f++) 
+            satisfactionExpr += x[i][f]; //note var "aij" is not included in beasley's version (all warehouses can satisfy any given customer), but likely this will have to be added here in the future
+         model->MakeRowConstraint(satisfactionExpr == 1);
+    }  
+    
+    // constraint for validating that only open facilities can service customers (as in those with yi = 1)
+    for(int f{0}; f < UFLProblem.facilityCount; f++) 
+    {
+        for(int i{0}; i < UFLProblem.customerCount; i++) 
+            //model.AddLessOrEqual(x[i][f], y[f]);
+            model->MakeRowConstraint(LinearExpr(x[i][f]) <= LinearExpr(y[f]));
+    }
+
+    //model->SetTimeLimit(absl::Seconds(3600));
+    model->SetSolverSpecificParametersAsString("time_limit=3600.0"); //Highs time limit
+    model->SetSolverSpecificParametersAsString("mip_rel_gap=0.0001");
+    MPSolverParameters p;
+    model->EnableOutput();
+    p.SetDoubleParam(MPSolverParameters::RELATIVE_MIP_GAP, 0.0001);
+
+    const MPSolver::ResultStatus result = model->Solve();
+
+    if(result == MPSolver::OPTIMAL || result == MPSolver::FEASIBLE) 
+    {
+
+        //excel << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+        excel << "," << std::setprecision(4) << std::fixed <<  objective->Value() / decimalToIntScaling << "," << ((double)model->wall_time()) / 1000.0 << "," << (std::abs(objective->BestBound() - objective->Value())) / objective->Value() << endl; 
+    } // FOR DECIMAL CASE MIGHt HAVE TO CAST TO DOUBLE
+    else // case of infeasible solution 
+    {
+        //profit = -1;
+        excel <<  -1 << "," << ((double)model->wall_time()) / 1000.0 << endl; 
+    } 
+} 
+ */
 int main()
 {
-    //ofstream excel("UFLP_MT1000-2000.csv"); //creates file for data to be put in, ios::app allows appending so .open doesn't overwrite
-    ofstream excel("CPLEX_UFLP_Beasley_ALL_problems_3600s_untuned.csv");
+    ofstream excel("Cpsat6threads_UFLP_MED1500_3600s_untuned.csv");
+    //ofstream excel("cpsat4threads_UFLP_MStarMT1_8threads_3600s_untuned.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
-
-   /*  GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
+/* 
+    GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
     (env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
-    env.start(); */
-
+    env.start();
+ */
     //reading + solving
-    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/BeasleyUFLP/all_beasley_problems";
+    //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/KoerkelGhosh-sym/allghosh";
+    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
+    //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/beasleyUFLP/all_beasley_problems";
+    //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/M/allmstar";
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
         UFLPInstance UFLP;
-        readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets
-        //readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
+        //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets 
+        readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
         excel << problemPath.path().filename().stem().string();
+        
+        std::cout << "Started\n";
         //runGurobiUFLP(env, excel, UFLP);
         //runHexalyUFLP(excel, UFLP);
-        runCplexUFLP(excel, UFLP);
+        //runCplexUFLP(excel, UFLP);
+        runCpSatUFLP(excel, UFLP);
+        //runMpSolver(excel, UFLP);
+        std::cout << "Ended\n";
         
 
     }
@@ -390,3 +585,6 @@ int main()
 
 
 // CPSAT only accepts INTEGER values, so I must values up by the decimal place and cast to int
+
+
+// TODO: Look into Googles MIP solvers, SCIP, as UFLP is MIP
