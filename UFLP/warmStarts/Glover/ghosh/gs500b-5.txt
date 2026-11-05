@@ -1,0 +1,3 @@
+Result_of_inst : gs500b-5
+ The best cost = 538270.0 CPU to fin 0.562 Runnig time = 4.577
+ Solution = [460, 235, 105, 322, 3, 7, 384, 319, 431, 185, 13, 65, 486, 226, 372, 40, 444, 153]

@@ -4,10 +4,10 @@
 //using namespace hexaly;
 
 //Gurobi import
-//#include "gurobi_c++.h"
+#include "gurobi_c++.h"
 
 //CPLEX import
-#include <ilcplex/ilocplex.h>
+//#include <ilcplex/ilocplex.h>
 
 
 //CP-SAT imports + alias'
@@ -47,9 +47,34 @@ using namespace operations_research;
 #include <iomanip>
 #include <filesystem>
 #include <chrono>
+#include <algorithm>
 using namespace std;
 namespace fs = std::filesystem;
 
+
+vector<vector<int>> readWarmStarts(string folderPath)
+{
+    vector<vector<int>> warmStarts;
+    string s{""};
+    int facilityIdxChosenByCustomer;
+
+    
+    for(const fs::directory_entry& warmStartFile : fs::recursive_directory_iterator(folderPath))
+    {
+        vector<int> warmStart;
+        char comma{','};
+        ifstream fstream{warmStartFile.path().string()};
+        getline(fstream, s, '['); // gets fstream up to the solution
+        while(comma == ',')
+        {
+            fstream >> facilityIdxChosenByCustomer;
+            fstream >> comma;
+            warmStart.push_back(facilityIdxChosenByCustomer);
+        }
+        warmStarts.push_back(warmStart);
+    }
+    return warmStarts;
+}
 
 /* 
     This program models the uncapacitated facility location problem for use with Gurobi
@@ -164,8 +189,8 @@ void readUFLPBeasleyForm(string inputFileName, UFLPInstance& UFLP)
     UFLP.fixedPrices = fixedPrices;
 }
 
-/* 
-void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
+
+void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const vector<int>& warmStart = {})
 {
         GRBLinExpr objective; // obj is to minimize for UFLP
         GRBModel model(env);
@@ -215,8 +240,34 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
     }
 
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  
-        model.set(GRB_DoubleParam_TimeLimit, 3600); 
+        //model.set(GRB_DoubleParam_TuneTimeLimit,86400 * 2); // total tune time
+        model.set(GRB_DoubleParam_TimeLimit, 3600); //runs each trial 3 times
+        //model.set(GRB_IntParam_TuneCriterion,1); // NEW, focuses on MIPGAP
+        //model.set(GRB_IntParam_TuneTrials, 3); 
         //model.read("cadizFineTune.prm");
+        //model.read("Tripoli_Ghosh_gs500c_3Tune.prm"); // Tuning settings
+
+        //tuning (with MS1)
+        //model.tune();
+        //model.getTuneResult(1); //0 is also the baseline, 1 is for best case
+        //model.write("Ghosh_gs500c_3Tune.prm");
+        //exit(0);
+
+
+        // load warm start, only in terms of the facilities to be opened
+        if(warmStart.size() != 0)
+        {
+            for(int i{0}; i < y.size(); i++)
+            {
+                y[i].set(GRB_DoubleAttr_Start, 0.0);
+            }
+
+            for(int openedFacility : warmStart)
+            {
+                y[openedFacility - 1].set(GRB_DoubleAttr_Start, 1.0);
+            }
+        }
+        //
         model.optimize();
         //long long profit{0};
         if(model.get(GRB_IntAttr_SolCount) > 0)
@@ -229,7 +280,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem)
             //profit = -1;
             excel <<  -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         } 
-}  */
+} 
 
 
 // Converts a flat vector that contains every facility count of elems attributed to the customer (so first facilityCount of elems belongs to the first customer, and so on...) to a 2d vector where each vector is a facility, and all the elements are the service price of each customer for that facility
@@ -309,7 +360,7 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
     }
 }
  */
- 
+ /* 
  void runCplexUFLP(ofstream& excel, UFLPInstance& UFLProblem)
  {        
         
@@ -385,6 +436,7 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
         } 
         env.end(); // Must manually clean up for CPLEX, unlike Gurobi
 }  
+ */
 
 /* 
 void runCpSatUFLP(ofstream& excel, UFLPInstance& UFLProblem)
@@ -539,32 +591,41 @@ void runMpSolver(ofstream& excel, UFLPInstance& UFLProblem)
  */
 int main()
 {
-    ofstream excel("CPLEX6threadsMemEmphasis_UFLP_MED3000_3600s_untuned.csv");
+    ofstream excel("Gurobi_GloverWARMSTART_MED3000-1000s500sONLY_GHOSH_3600s_untuned.csv");
     //ofstream excel("cpsat4threads_UFLP_MStarMT1_8threads_3600s_untuned.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
-/* 
+
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
     (env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
     env.start();
- */
+
     //reading + solving
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/KoerkelGhosh-sym/allghosh";
     fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/beasleyUFLP/all_beasley_problems";
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/M/allmstar";
+    
+    //vector<vector<int>> warmStarts = readWarmStarts("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/ghosh");
+    vector<vector<int>> warmStarts = readWarmStarts("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/MED");
+
+    int i = 0;
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
+        if(i < 14)
+        {
+            i++;
+            continue;
+        }
         UFLPInstance UFLP;
         //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets 
         readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
         excel << problemPath.path().filename().stem().string();
-        
         std::cout << "Started\n";
-        //runGurobiUFLP(env, excel, UFLP);
+        runGurobiUFLP(env, excel, UFLP, warmStarts[i++]);
         //runHexalyUFLP(excel, UFLP);
-        runCplexUFLP(excel, UFLP);
+        //runCplexUFLP(excel, UFLP);
         //runCpSatUFLP(excel, UFLP);
         //runMpSolver(excel, UFLP);
         std::cout << "Ended\n";

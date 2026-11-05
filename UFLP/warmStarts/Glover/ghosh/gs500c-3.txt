@@ -1,0 +1,3 @@
+Result_of_inst : gs500c-3
+ The best cost = 621204.0 CPU to fin 0.317 Runnig time = 2.438
+ Solution = [195, 98, 216, 333, 429, 245]

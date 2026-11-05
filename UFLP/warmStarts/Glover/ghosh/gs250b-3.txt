@@ -1,0 +1,3 @@
+Result_of_inst : gs250b-3
+ The best cost = 275710.0 CPU to fin 0.147 Runnig time = 0.769
+ Solution = [57, 69, 55, 166, 32, 60, 172, 82, 174, 67, 210]

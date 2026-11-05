@@ -1,0 +1,5 @@
+Result_of_inst : 2500-10
+ Results :  
+ The avg cost  3100155.9 AVG CPU to fin 259.5038 AVG Runnig time = 531.1155
+ The best solution Cost  3099907.0 CPU to fin 419.344 Runnig time = 478.87
+Solution = [2067, 1646, 395, 2049, 1826, 859, 1221, 1550, 605, 1793, 433, 2260, 1910, 1243, 1041, 118, 1161, 1135, 1881, 1958, 2036, 369]
