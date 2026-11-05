@@ -51,8 +51,31 @@ using namespace operations_research;
 using namespace std;
 namespace fs = std::filesystem;
 
+vector<vector<int>> readWarmStartsCustomerToFacilityMapping(string folderPath)
+{
+    vector<vector<int>> warmStarts;
+    string s{""};
+    int facilityIdxChosenByCustomer;
 
-vector<vector<int>> readWarmStarts(string folderPath)
+    
+    for(const fs::directory_entry& warmStartFile : fs::recursive_directory_iterator(folderPath))
+    {
+        vector<int> warmStart;
+        char comma{','};
+        ifstream fstream{warmStartFile.path().string()};
+        getline(fstream, s, '['); // gets fstream up to the solution
+        while(comma == ',')
+        {
+            fstream >> facilityIdxChosenByCustomer;
+            fstream >> comma;
+            warmStart.push_back(facilityIdxChosenByCustomer);
+        }
+        warmStarts.push_back(warmStart);
+    }
+    return warmStarts;
+}
+
+vector<vector<int>> readWarmStartsFacilityOpened(string folderPath)
 {
     vector<vector<int>> warmStarts;
     string s{""};
@@ -198,7 +221,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const
         vector<GRBVar> y; // Decision variable for if warehouse was opened or not
 //////////////////// objective value definition ///////////////
 
-        for(int i{0}; i < UFLProblem.customerCount; i++)//initializes inner vectors of variable x
+        for(int i{0}; i < UFLProblem.customerCount; i++)//initializes inner vectors of variable x, customers
             x.push_back(vector<GRBVar>());
         // servicing customer / not 
         for(int i{0}; i < UFLProblem.customerCount; i++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
@@ -242,6 +265,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const
         model.set(GRB_DoubleParam_MIPGap, 0.0001); //What we deem optimal mipgap to terminate the program  
         //model.set(GRB_DoubleParam_TuneTimeLimit,86400 * 2); // total tune time
         model.set(GRB_DoubleParam_TimeLimit, 3600); //runs each trial 3 times
+        model.set(GRB_IntParam_SolutionLimit, 1); // FOR PRINTING WARM STARTS, DELETE WHEN DONE TODO
         //model.set(GRB_IntParam_TuneCriterion,1); // NEW, focuses on MIPGAP
         //model.set(GRB_IntParam_TuneTrials, 3); 
         //model.read("cadizFineTune.prm");
@@ -274,6 +298,23 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const
         {
             //excel << "," <<  profit << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
             excel << "," << std::setprecision(4) << std::fixed <<  model.get(GRB_DoubleAttr_ObjVal) << "," << model.get(GRB_DoubleAttr_Runtime) << "," << model.get(GRB_DoubleAttr_MIPGap) << endl; 
+            // output warm start of each customers decided on facility
+          
+            excel << '[';
+            for(int c{0}; c < UFLProblem.customerCount; c++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
+            {
+                for(int f{0}; f < UFLProblem.facilityCount; f++)
+                {
+                    if(x[c][f].get(GRB_DoubleAttr_X) == 1.0)
+                    {
+                        excel << "," << f << " ";
+                        break;
+                    }
+
+                }
+                
+            }
+            excel << ']' << endl;
         }
         else // case of infeasible solution 
         {
@@ -297,51 +338,73 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
     }
     return ans;
 }
-
+/* 
 // HEXALY IMPLEMENTATION WAS MADE WITH SIGNIFICANT INSPIRATION FROM: https://www.hexaly.com/templates/capacitated-facility-location-problem-cflp
-/* void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem)
+void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmStart)
 {
-    HexalyOptimizer optimizer; 
-    HxModel model = optimizer.getModel();
+        HexalyOptimizer optimizer; 
+        HxModel model = optimizer.getModel();
 
-    // Decision var
-    vector<HxExpression> facilityAssignments(UFLProblem.facilityCount); // holds decisions, with vector containing each faciilty, and the contents of the vector being a set of which customers are using the specific facility 
-    
-    // Defining decision var
-    for (int f{0}; f < UFLProblem.facilityCount; f++) 
-    {
-        facilityAssignments[f] = model.setVar(UFLProblem.customerCount); // this creates a set to represent which customers are satisfied for a given facility (the set only contains customers of that facility)
-    }
-    // Enforcing customer utilizes only 1 facility and that all customers have their "demand" satisfied
-    model.constraint(model.partition(facilityAssignments.begin(), facilityAssignments.end())); // partition returns true ONLY IF each customer is serviced (as denoted by .setVar() using customerCount, so each customer is represented with a unique number from 0 to customerCount - 1), and specifically by exactly ONE facility, not multiple, thus this enforces customer->facility relationship.
-    
-    // defining service price
-    HxExpression allocationPrice = model.array();
-    vector<vector<double>> servicePriceFacilityView = convertFlatCustViewToFacility(UFLProblem); // Flat list is in chunks of every facilityCount being all of the given customers service costs, starting at 0. This converts it to a clearer form where each facility contains the service costs each customer faces, starting with customer 0
-    for (int f = 0; f < UFLProblem.facilityCount; ++f) 
-    {
-        allocationPrice.addOperand(model.array(servicePriceFacilityView[f].begin(), servicePriceFacilityView[f].end()));
-    }
-    // defining cost (obj val)
-    vector<HxExpression> cost(UFLProblem.facilityCount); // Objective var
-    for (int f = 0; f < UFLProblem.facilityCount; ++f) 
-    {
-            HxExpression facility = facilityAssignments[f];
-            HxExpression size = model.count(facility);
+        // Decision var
+        vector<HxExpression> facilityAssignments(UFLProblem.facilityCount); // holds decisions, with vector containing each faciilty, and the contents of the vector being a set of which customers are using the specific facility 
+        
+        // Defining decision var
+        for (int f{0}; f < UFLProblem.facilityCount; f++) 
+        {
+            facilityAssignments[f] = model.setVar(UFLProblem.customerCount); // this creates a set to represent which customers are satisfied for a given facility (the set only contains customers of that facility)
+        }
+        // Enforcing customer utilizes only 1 facility and that all customers have their "demand" satisfied
+        model.constraint(model.partition(facilityAssignments.begin(), facilityAssignments.end())); // partition returns true ONLY IF each customer is serviced (as denoted by .setVar() using customerCount, so each customer is represented with a unique number from 0 to customerCount - 1), and specifically by exactly ONE facility, not multiple, thus this enforces customer->facility relationship.
+        
+        // defining service price
+        HxExpression allocationPrice = model.array();
+        vector<vector<double>> servicePriceFacilityView = convertFlatCustViewToFacility(UFLProblem); // Flat list is in chunks of every facilityCount being all of the given customers service costs, starting at 0. This converts it to a clearer form where each facility contains the service costs each customer faces, starting with customer 0
+        for (int f = 0; f < UFLProblem.facilityCount; ++f) 
+        {
+            allocationPrice.addOperand(model.array(servicePriceFacilityView[f].begin(), servicePriceFacilityView[f].end()));
+        }
+        // defining cost (obj val)
+        vector<HxExpression> cost(UFLProblem.facilityCount); // Objective var
+        for (int f = 0; f < UFLProblem.facilityCount; ++f) 
+        {
+                HxExpression facility = facilityAssignments[f];
+                HxExpression size = model.count(facility);
 
-            // Cost (allocation price + opening price)
-            HxExpression costLambda =
-                model.createLambdaFunction([&](HxExpression i) { return model.at(allocationPrice, f, i); });
-            cost[f] = model.sum(facility, costLambda) + (size > 0) * UFLProblem.fixedPrices[f];
-    }
-    
-    HxExpression totalCost = model.sum(cost.begin(), cost.end());
-    model.minimize(totalCost);
-    model.close();
+                // Cost (allocation price + opening price)
+                HxExpression costLambda =
+                    model.createLambdaFunction([&](HxExpression i) { return model.at(allocationPrice, f, i); });
+                cost[f] = model.sum(facility, costLambda) + (size > 0) * UFLProblem.fixedPrices[f];
+        }
+        
+        HxExpression totalCost = model.sum(cost.begin(), cost.end());
+        model.minimize(totalCost);
+        model.close();
     // All ABOVE is HEXALY template
 
     optimizer.getParam().setGapLimit(0.0001);
     optimizer.getParam().setTimeLimit(3600); 
+    // load warm start, only in terms of the facilities to be opened
+
+    if(warmStart.size() != 0)
+    {
+        for(int i{0}; i < UFLProblem.facilityCount; i++)
+        {
+            facilityAssignments[i].getCollectionValue().clear(); // ensures all sets are empty (all warehouses are unopened)
+        }
+
+
+        int custI{0};
+        for(int openedFacility : warmStart) // enforces that non warm start facilities are not allowed to be opened in warm start only
+        {
+            facilityAssignments[openedFacility].getCollectionValue().add(custI++);
+        }
+        while(custI < UFLProblem.customerCount)
+        {
+            facilityAssignments[warmStart[0]].getCollectionValue().add(custI++);
+        }
+    }
+    //
+
     auto start = chrono::high_resolution_clock::now();
     optimizer.solve();
     auto end = chrono::high_resolution_clock::now();
@@ -591,40 +654,40 @@ void runMpSolver(ofstream& excel, UFLPInstance& UFLProblem)
  */
 int main()
 {
-    ofstream excel("Gurobi_GloverWARMSTART_MED3000-1000s500sONLY_GHOSH_3600s_untuned.csv");
-    //ofstream excel("cpsat4threads_UFLP_MStarMT1_8threads_3600s_untuned.csv");
+    //ofstream excel("Hexaly_GloverWARMSTART_MED_3600s_untuned.csv");
+    ofstream excel("Ghosh_WarmStartCustomerToFacilityMapping.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
-
+    
     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
     (env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
     env.start();
-
+   
     //reading + solving
-    //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/KoerkelGhosh-sym/allghosh";
-    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
+    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/KoerkelGhosh-sym/allghosh";
+    //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/beasleyUFLP/all_beasley_problems";
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/M/allmstar";
     
-    //vector<vector<int>> warmStarts = readWarmStarts("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/ghosh");
-    vector<vector<int>> warmStarts = readWarmStarts("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/MED");
+    vector<vector<int>> warmStarts = readWarmStartsFacilityOpened("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/ghosh");
+    //vector<vector<int>> warmStarts = readWarmStartsFacilityOpened("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/MED"); 
 
     int i = 0;
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
-        if(i < 14)
+        /* if(i < 14)
         {
             i++;
             continue;
-        }
+        } */
         UFLPInstance UFLP;
         //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets 
         readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
         excel << problemPath.path().filename().stem().string();
         std::cout << "Started\n";
         runGurobiUFLP(env, excel, UFLP, warmStarts[i++]);
-        //runHexalyUFLP(excel, UFLP);
+        //runHexalyUFLP(excel, UFLP, warmStarts[i++]);
         //runCplexUFLP(excel, UFLP);
         //runCpSatUFLP(excel, UFLP);
         //runMpSolver(excel, UFLP);
@@ -632,8 +695,6 @@ int main()
         
 
     }
-
-    // TODO write scripts for reading Ghosh and MED (CLSA,B,C), and also versions for CP-SAT, CPLEX, and Hexaly
 
     return 0;
 }
@@ -647,4 +708,5 @@ int main()
 // CPSAT only accepts INTEGER values, so I must values up by the decimal place and cast to int
 
 
-// TODO: Look into Googles MIP solvers, SCIP, as UFLP is MIP
+
+// TODO: Push warm start to gurobi, then output the warm start solution to be used directly with hexaly.
