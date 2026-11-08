@@ -1,10 +1,10 @@
 //Hexaly Imports
-//#include "optimizer/hexalyoptimizer.h"
-//#include "modeler/hexalymodeler.h"
-//using namespace hexaly;
+#include "optimizer/hexalyoptimizer.h"
+#include "modeler/hexalymodeler.h"
+using namespace hexaly;
 
 //Gurobi import
-#include "gurobi_c++.h"
+//#include "gurobi_c++.h"
 
 //CPLEX import
 //#include <ilcplex/ilocplex.h>
@@ -51,19 +51,18 @@ using namespace operations_research;
 using namespace std;
 namespace fs = std::filesystem;
 
-vector<vector<int>> readWarmStartsCustomerToFacilityMapping(string folderPath)
+vector<vector<int>> readWarmStartsCustomerToFacilityMapping(string warmStartFilePath)
 {
     vector<vector<int>> warmStarts;
     string s{""};
     int facilityIdxChosenByCustomer;
 
-    
-    for(const fs::directory_entry& warmStartFile : fs::recursive_directory_iterator(folderPath))
+    ifstream fstream{warmStartFilePath};
+    while(getline(fstream, s, '[') && s != "\n") // s != "\n" is needed to check for EOF since I overwrote getline to note use eof, "[" instead
     {
+
         vector<int> warmStart;
         char comma{','};
-        ifstream fstream{warmStartFile.path().string()};
-        getline(fstream, s, '['); // gets fstream up to the solution
         while(comma == ',')
         {
             fstream >> facilityIdxChosenByCustomer;
@@ -212,7 +211,7 @@ void readUFLPBeasleyForm(string inputFileName, UFLPInstance& UFLP)
     UFLP.fixedPrices = fixedPrices;
 }
 
-
+/* 
 void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const vector<int>& warmStart = {})
 {
         GRBLinExpr objective; // obj is to minimize for UFLP
@@ -279,18 +278,24 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const
 
 
         // load warm start, only in terms of the facilities to be opened
-        if(warmStart.size() != 0)
-        {
-            for(int i{0}; i < y.size(); i++)
-            {
-                y[i].set(GRB_DoubleAttr_Start, 0.0);
-            }
+        // NEW WARM START APPROACH
+         for(int i{0}; i < warmStart.size(); i++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
+            x[i][warmStart[i]].set(GRB_DoubleAttr_Start, 1.0);
 
-            for(int openedFacility : warmStart)
-            {
-                y[openedFacility - 1].set(GRB_DoubleAttr_Start, 1.0);
-            }
-        }
+    //     OLD WARM START APPROACH
+       // if(warmStart.size() != 0)
+       // {
+        //    for(int i{0}; i < y.size(); i++)
+      //      {
+    //            y[i].set(GRB_DoubleAttr_Start, 0.0);
+  //          }
+//
+         //   for(int openedFacility : warmStart)
+       //     {
+     //           y[openedFacility - 1].set(GRB_DoubleAttr_Start, 1.0);
+   //         }
+ //       }
+ 
         //
         model.optimize();
         //long long profit{0};
@@ -322,7 +327,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const
             excel <<  -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         } 
 } 
-
+ */
 
 // Converts a flat vector that contains every facility count of elems attributed to the customer (so first facilityCount of elems belongs to the first customer, and so on...) to a 2d vector where each vector is a facility, and all the elements are the service price of each customer for that facility
 vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProblem)
@@ -338,7 +343,7 @@ vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProb
     }
     return ans;
 }
-/* 
+
 // HEXALY IMPLEMENTATION WAS MADE WITH SIGNIFICANT INSPIRATION FROM: https://www.hexaly.com/templates/capacitated-facility-location-problem-cflp
 void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmStart)
 {
@@ -392,16 +397,11 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmS
             facilityAssignments[i].getCollectionValue().clear(); // ensures all sets are empty (all warehouses are unopened)
         }
 
+        for(int i{0}; i < warmStart.size(); i++)
+        {
+            facilityAssignments[warmStart[i]].getCollectionValue().add(i);
+        }
 
-        int custI{0};
-        for(int openedFacility : warmStart) // enforces that non warm start facilities are not allowed to be opened in warm start only
-        {
-            facilityAssignments[openedFacility].getCollectionValue().add(custI++);
-        }
-        while(custI < UFLProblem.customerCount)
-        {
-            facilityAssignments[warmStart[0]].getCollectionValue().add(custI++);
-        }
     }
     //
 
@@ -422,7 +422,7 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmS
         excel << "," << -1 << "," << optimizer.getStatistics().getRunningTime() << endl;
     }
 }
- */
+
  /* 
  void runCplexUFLP(ofstream& excel, UFLPInstance& UFLProblem)
  {        
@@ -654,15 +654,15 @@ void runMpSolver(ofstream& excel, UFLPInstance& UFLProblem)
  */
 int main()
 {
-    //ofstream excel("Hexaly_GloverWARMSTART_MED_3600s_untuned.csv");
-    ofstream excel("Ghosh_WarmStartCustomerToFacilityMapping.csv");
+    ofstream excel("Hexaly_GloverWARMSTART_ghosh_3600s_untuned.csv");
+    //ofstream excel("Ghosh_WarmStartNEWAPPROACHTest.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
     
-    GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
+    /* GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
     (env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
     (env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
     (env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
-    env.start();
+    env.start(); */
    
     //reading + solving
     fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/KoerkelGhosh-sym/allghosh";
@@ -670,8 +670,12 @@ int main()
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/beasleyUFLP/all_beasley_problems";
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/M/allmstar";
     
-    vector<vector<int>> warmStarts = readWarmStartsFacilityOpened("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/ghosh");
+    //BAD warm start approach
+    //vector<vector<int>> warmStarts = readWarmStartsFacilityOpened("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/ghosh/");
     //vector<vector<int>> warmStarts = readWarmStartsFacilityOpened("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/MED"); 
+
+    vector<vector<int>> warmStartByCustomer = readWarmStartsCustomerToFacilityMapping("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/ghosh/Ghosh_WarmStartCustomerToFacilityMapping.csv");
+    //vector<vector<int>> warmStartByCustomer = readWarmStartsCustomerToFacilityMapping("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/MED/MED_WarmStartCustomerToFacilityMapping.csv");
 
     int i = 0;
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
@@ -686,8 +690,8 @@ int main()
         readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
         excel << problemPath.path().filename().stem().string();
         std::cout << "Started\n";
-        runGurobiUFLP(env, excel, UFLP, warmStarts[i++]);
-        //runHexalyUFLP(excel, UFLP, warmStarts[i++]);
+        //runGurobiUFLP(env, excel, UFLP, warmStartByCustomer[i++]);
+        runHexalyUFLP(excel, UFLP, warmStartByCustomer[i++]);
         //runCplexUFLP(excel, UFLP);
         //runCpSatUFLP(excel, UFLP);
         //runMpSolver(excel, UFLP);
@@ -709,4 +713,4 @@ int main()
 
 
 
-// TODO: Push warm start to gurobi, then output the warm start solution to be used directly with hexaly.
+//TODO: GHOSH with hexaly
