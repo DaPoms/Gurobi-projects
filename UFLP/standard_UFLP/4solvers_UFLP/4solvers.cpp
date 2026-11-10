@@ -403,8 +403,7 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmS
         }
 
     }
-    //
-
+ 
     auto start = chrono::high_resolution_clock::now();
     optimizer.solve();
     auto end = chrono::high_resolution_clock::now();
@@ -423,8 +422,9 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmS
     }
 }
 
+
  /* 
- void runCplexUFLP(ofstream& excel, UFLPInstance& UFLProblem)
+ void runCplexUFLP(ofstream& excel, UFLPInstance& UFLProblem, const vector<int>& warmStart = vector<int>())
  {        
         
         IloEnv env;
@@ -472,15 +472,30 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmS
         IloCplex cplex(model); 
         cplex.setParam(IloCplex::Param::TimeLimit, 3600);
         cplex.setParam(IloCplex::Param::MIP::Tolerances::MIPGap, 0.0001);
-        cplex.setParam(IloCplex::Param::Emphasis::Memory, true);
+        // below are settings to help with out of memory errors
+        //cplex.setParam(IloCplex::Param::Emphasis::Memory, true);
+        //cplex.setParam(IloCplex::Param::Threads, 6); // no crash with 2 threads default settings
 
-        cplex.setParam(IloCplex::Param::Threads, 6); // no crash with 2 threads default settings
         // Below are only needed for extremely large problems
         // cplex.setParam(IloCplex::Param::Parallel, 1); 
        // cplex.setParam(IloCplex::Param::WorkMem, 10240);
        // cplex.setParam(IloCplex::Param::MIP::Strategy::File, 3); // Allows offloading RAM memory to SSD if exceeded     
       //  cplex.setParam(IloCplex::Param::MIP::Limits::TreeMemory, 15000); // Search tree stop condition
      //   cplex.setParam(IloCplex::Param::Threads, 2);  // next try 4 (curr one is 1)
+
+     // warm start
+        if(warmStart.size() != 0)
+        {
+            IloNumVarArray serviceDecisionWarmVars{env};
+            for(int i{0}; i < UFLProblem.customerCount; i++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
+                for(int c{0}; c < UFLProblem.facilityCount; c++)
+                    serviceDecisionWarmVars.add(x[i][c]);
+            IloNumArray serviceDecisionWarmVals(env);
+            for(int i{0}; i < UFLProblem.customerCount; i++) //only ordered this way to play around better with my servicePrices variable, which is made in customer order, not facility
+                for(int c{0}; c < UFLProblem.facilityCount; c++)
+                    serviceDecisionWarmVals.add(c == warmStart[i] ? 1.0 : 0.0);
+            cplex.addMIPStart(serviceDecisionWarmVars, serviceDecisionWarmVals);
+        }
  
         double startTime = cplex.getCplexTime();
         IloBool status = cplex.solve();
@@ -499,8 +514,8 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmS
         } 
         env.end(); // Must manually clean up for CPLEX, unlike Gurobi
 }  
+ 
  */
-
 /* 
 void runCpSatUFLP(ofstream& excel, UFLPInstance& UFLProblem)
 {
@@ -654,7 +669,7 @@ void runMpSolver(ofstream& excel, UFLPInstance& UFLProblem)
  */
 int main()
 {
-    ofstream excel("Hexaly_GloverWARMSTART_ghosh_3600s_untuned.csv");
+    ofstream excel("Hexaly_GloverWARMSTART_ghoshREMAININGPROBLEMS_3600s_untuned.csv");
     //ofstream excel("Ghosh_WarmStartNEWAPPROACHTest.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
     
@@ -680,11 +695,11 @@ int main()
     int i = 0;
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
-        /* if(i < 14)
+        if(i < 33)
         {
             i++;
             continue;
-        } */
+        }
         UFLPInstance UFLP;
         //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets 
         readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
@@ -692,7 +707,7 @@ int main()
         std::cout << "Started\n";
         //runGurobiUFLP(env, excel, UFLP, warmStartByCustomer[i++]);
         runHexalyUFLP(excel, UFLP, warmStartByCustomer[i++]);
-        //runCplexUFLP(excel, UFLP);
+        //runCplexUFLP(excel, UFLP, warmStartByCustomer[i++]);
         //runCpSatUFLP(excel, UFLP);
         //runMpSolver(excel, UFLP);
         std::cout << "Ended\n";
@@ -714,3 +729,4 @@ int main()
 
 
 //TODO: GHOSH with hexaly
+// todo: gs500c-3 cplex
