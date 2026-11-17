@@ -4,10 +4,10 @@
 //using namespace hexaly;
 
 //Gurobi import
-#include "gurobi_c++.h"
+//#include "gurobi_c++.h"
 
 //CPLEX import
-//#include <ilcplex/ilocplex.h>
+#include <ilcplex/ilocplex.h>
 
 
 //CP-SAT imports + alias'
@@ -173,7 +173,7 @@ void readUFLPSimpleForm(string inputFileName, UFLPInstance& UFLP)
     and one line with connection costs to all factilities.""
 */
 
-
+ 
 void readUFLPBeasleyForm(string inputFileName, UFLPInstance& UFLP)
 {
     string skipWord; // Just used to skip a >>
@@ -211,7 +211,7 @@ void readUFLPBeasleyForm(string inputFileName, UFLPInstance& UFLP)
     UFLP.fixedPrices = fixedPrices;
 }
 
-
+/*
 void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const vector<int>& warmStart = {})
 {
         GRBLinExpr objective; // obj is to minimize for UFLP
@@ -329,7 +329,7 @@ void runGurobiUFLP(GRBEnv& env, ofstream& excel, UFLPInstance& UFLProblem, const
             excel <<  -1 << "," << model.get(GRB_DoubleAttr_Runtime) << endl; 
         } 
 } 
-
+ */
 
 // Converts a flat vector that contains every facility count of elems attributed to the customer (so first facilityCount of elems belongs to the first customer, and so on...) to a 2d vector where each vector is a facility, and all the elements are the service price of each customer for that facility
 vector<vector<double>> convertFlatCustViewToFacility(const UFLPInstance& UFLProblem)
@@ -425,7 +425,7 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmS
 }
  */
 
- /* 
+ 
  void runCplexUFLP(ofstream& excel, UFLPInstance& UFLProblem, const vector<int>& warmStart = vector<int>())
  {        
         
@@ -516,7 +516,7 @@ void runHexalyUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmS
         } 
         env.end(); // Must manually clean up for CPLEX, unlike Gurobi
 }  
-  */
+ 
 
 /* 
 void runCpSatUFLP(ofstream& excel, UFLPInstance& UFLProblem, vector<int>& warmStart, long warmStartObj)
@@ -702,21 +702,21 @@ void runMpSolver(ofstream& excel, UFLPInstance& UFLProblem)
  */
 int main()
 {
-    ofstream excel("GurobiVers14_Mstar_3600s_untuned.csv");
-    //ofstream excel("GurobiVers14_GloverWARMSTART_Beasley_3600s_untuned.csv");
+    //ofstream excel("GurobiVers14_Mstar_3600s_untuned.csv");
+    ofstream excel("Cplex_GloverWARMSTART_MED_2000_1000_3600s_untuned.csv");
     excel << "Name" << "," << "Obj Fn" << "," << "Runtime" << "," << "MIPGAP" << '\n';
     
-     GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
+    //GRBEnv env = GRBEnv(true); //Heap version (can change dynamically)
     //(env).set(GRB_StringParam_WLSAccessID, getenv("GRB_WLSACCESSID"));
     //(env).set(GRB_StringParam_WLSSecret, getenv("GRB_WLSSECRET"));
     //(env).set(GRB_IntParam_LicenseID, stoi(getenv("GRB_LICENSEID")));
-    env.start(); 
+    //env.start(); 
    
     //reading + solving
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/KoerkelGhosh-sym/allghosh";
-    //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
+    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/kmedian/allkmedian";
     //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/beasleyUFLP/all_beasley_problems";
-    fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/M/allmstar";
+    //fs::path problemFolderPath = "C:/Users/Pomer/Desktop/Gurobi projects/problems/UFLP/M/allmstar";
     
     //BAD warm start approach
     //vector<vector<int>> warmStarts = readWarmStartsFacilityOpened("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/ghosh/");
@@ -724,25 +724,25 @@ int main()
 
     //GOOD warm start approach
     //vector<vector<int>> warmStartByCustomer = readWarmStartsCustomerToFacilityMapping("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/ghosh/Ghosh_WarmStartCustomerToFacilityMapping.csv");
-    //vector<vector<int>> warmStartByCustomer = readWarmStartsCustomerToFacilityMapping("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/MED/MED_WarmStartCustomerToFacilityMapping.csv");
+    vector<vector<int>> warmStartByCustomer = readWarmStartsCustomerToFacilityMapping("C:/Users/Pomer/Desktop/Gurobi projects/UFLP/warmStarts/Glover/MED/MED_WarmStartCustomerToFacilityMapping.csv");
     //vector<long> warmStartObjFnsMED = {326790, 607878, 220560, 2000801, 866454, 335002, 2558118, 1122805, 437693, 3099907, 1347516, 534506, 3570766, 1602345, 643797, 798577, 326790, 99169};
     int i = 0;
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
-        /* if(i < 8)
+        if(i != 11)
         {
             i++;
             continue;
-        } */
+        }
         UFLPInstance UFLP;
-        readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets 
-        //readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
+        //readUFLPBeasleyForm(problemPath.path().string(), UFLP); // Used for M* and Beasley datasets 
+        readUFLPSimpleForm(problemPath.path().string(), UFLP); // Used for Ghosh and MED datasets
         excel << problemPath.path().filename().stem().string();
         std::cout << "Started\n";
-        //runGurobiUFLP(env, excel, UFLP, warmStartByCustomer[i++]);
-        runGurobiUFLP(env, excel, UFLP);
-        //runHexalyUFLP(excel, UFLP, warmStartByCustomer[i++]);
-        //runCplexUFLP(excel, UFLP, warmStartByCustomer[i++]);
+        //runGurobiUFLP(env, excel, UFLP, warmStartByCustomer[i]);
+        //runGurobiUFLP(env, excel, UFLP);
+        //runHexalyUFLP(excel, UFLP, warmStartByCustomer[i]);
+        runCplexUFLP(excel, UFLP, warmStartByCustomer[i]);
         //runCpSatUFLP(excel, UFLP, warmStartByCustomer[i], warmStartObjFnsMED[i]);
         i++;
         //runMpSolver(excel, UFLP);
@@ -761,5 +761,7 @@ int main()
 
 
 // CPSAT only accepts INTEGER values, so I must values up by the decimal place and cast to int
+
+
 
 // Note to self: Even when using license file, must call env.start() for configuration to be applied
