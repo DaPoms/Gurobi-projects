@@ -729,7 +729,7 @@ int main()
     int i = 0;
     for(const fs::directory_entry& problemPath : fs::recursive_directory_iterator(problemFolderPath))
     {
-        if(i != 11)
+        if(i != (11 - 3))
         {
             i++;
             continue;
